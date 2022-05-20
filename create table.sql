@@ -28,8 +28,8 @@ ShipName varchar(100) NOT NULL,
 ShipDescr varchar(225) NOT NULL,
 CabinCount Numeric(5,2) NOT NULL,
 YearLaunch char(4) NOT NULL,
-Tonnage Numeric(5,2) NOT NULL,
-Capacity Numeric(5,2) NOT NULL)
+Tonnage Numeric(8,2) NOT NULL,
+Capacity Numeric(8,2) NOT NULL)
 GO
 
 CREATE TABLE SHIP_FACILITY 
