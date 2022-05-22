@@ -200,7 +200,9 @@ END
 
 EXEC Wraper_insert_passenger 100000
 
-INSERT INTO PASSENGER(PassengerFname, PassengerLname, PassengerDOB)
-SELECT TOP 100000 CustomerFname, CustomerLname, DateOfBirth
-FROM PEEPS.dbo.tblCUSTOMER
-Go
+--insert data to CABIN
+
+select * from  SHIP
+
+Create PROCEDURE GetShipID
+@
