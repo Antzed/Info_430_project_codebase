@@ -1,107 +1,14 @@
---SELECT TOP 100 *
---FROM peeps.dbo.tblCUSTOMER
+USE group5_INFO430 
+GO
 
 INSERT INTO PASSENGER_TYPE(PassengerTypeName)
 VALUES('Adult'), ('Child'), ('Infant without a seat'), ('Infant with a seat'), ('Unaccompanied  child')
 
 INSERT INTO MEMBERSHIP(MembershipName, MembershipDescr)
 VALUES('Classic', 'default'), ('Silver', '1000 travel points'), ('Gold',  '10,000 travel points'), ('Diamond', '20,000 travel points'), ('Lifelong', '50,000 travel points')
-<<<<<<< HEAD
 GO
 
 
-CREATE PROCEDURE GetPassengerTypeID
-@PTNamey varchar(50),
-@PTIDy INT OUTPUT
-AS
-
-SET @PTIDy = (SELECT PassengerTypeID FROM PASSENGER_TYPE WHERE PassengerTypeName = @PTNamey)
-GO
-
-CREATE PROCEDURE GetMemberShip
-@MNamey varchar(50),
-@MIDy INT OUTPUT
-AS
-
-SET @MIDy = (SELECT MembershipID FROM MEMBERSHIP WHERE MembershipName = @MNamey)
-GO
-
-CREATE PROCEDURE InsertPassenger
-@PFname varchar(50),
-@PLname varchar(50),
-@PBirth date,
-@PTName varchar(50),
-@MName varchar(50)
-
-AS
-
-DECLARE @PT_ID INT, @M_ID INT
-
-EXEC GetPassengerTypeID
-@PTNamey = @PTName,
-@PTIDy = @PT_ID OUTPUT
-
-IF @PT_ID is null
-	BEGIN
-		PRINT '@PT_ID returns null, something is wrong with the data';
-		THROW 55001, '@PT_ID cannot be null. Terminating the process', 1;
-	END
-
-
-EXEC GetMemberShip
-@MNamey = @MName,
-@MIDy = @M_ID OUTPUT
-
-IF @M_ID is null
-	BEGIN
-		PRINT '@M_ID returns null, something is wrong with the data';
-		THROW 55001, '@M_ID cannot be null. Terminating the process', 1;
-	END
-
-BEGIN TRANSACTION T1
-INSERT INTO PASSENGER(PassengerTypeID, MembershipID, PassengerFname, PassengerLname, PassengerDOB)
-VALUES (@PT_ID, @M_ID, @PFname, @PLname, @PBirth)
-COMMIT TRANSACTION T1
-GO
-
-CREATE PROCEDURE Wraper_insert_passenger @RUN INT
-AS
-
-DECLARE @PF varchar(50), @PL varchar(50), @PBDay Date
-DECLARE @PT_RowCount INT = (SELECT COUNT(*) FROM PASSENGER_TYPE)
-DECLARE @M_RowCount INT = (SELECT COUNT(*) FROM MEMBERSHIP)
-DECLARE @P_RowCount INT = (SELECT COUNT(*) FROM PASSENGER)
-DECLARE @PT_PK INT
-DECLARE @M_PK INT
-DECLARE @P_PK INT
-
-DECLARE @PTN varchar(50)
-DECLARE @MN varchar(50)
-
-WHILE @RUN > 0
-
-BEGIN
-SET @PT_PK = (SELECT RAND() * @PT_RowCount + 1)
-SET @PTN = (SELECT PassengerTypeName FROM PASSENGER_TYPE WHERE PassengerTypeID = @PT_PK)
-
-SET @M_PK = (SELECT RAND() * @M_RowCount + 1)
-SET @MN = (SELECT MembershipName FROM MEMBERSHIP WHERE MembershipID = @M_PK)
-
-SET @P_PK = (SELECT RAND() * @P_RowCount + 1)
-SET @PF = (SELECT PassengerFname FROM PASSENGER WHERE PassengerID = @P_PK)
-SET @PL = (SELECT PassengerLname FROM PASSENGER WHERE PassengerID = @P_PK)
-SET @PBDay = (SELECT PassengerDOB FROM PASSENGER WHERE PassengerID = @P_PK)
-
-EXEC InsertPassenger
-@PFname = @PF,
-@PLname  = @CL,
-@PBirth = @PBDay,
-@PTName = @PTN,
-@MName = @MN
-
-SET @RUN = @RUN -1
-END
-=======
 
 INSERT INTO SHIP_TYPE (ShipTypeName, ShipTypeDescr)
 VALUES('Mainstream Cruise Ship', 'The most common and known type of cruise ship, marketed to suit the needs of the majority of passengers, with all sorts of standard resort features'),
@@ -189,4 +96,111 @@ VALUES ('1', 'Journey', 'A cruise ship', '3.55', '2016','30.28', '6.94'),
 ('5', 'Constellation', 'A cruise ship', '9.75', '2011','91', '20.32'),
 ('5', 'Galaxy', 'A cruise ship', '9.35', '2005','77.71', '18.9')
 GO
->>>>>>> 7cc21dab9a7cc833a3360c777cd642a4268d80b2
+
+
+--INSERT booking information
+select * from BOOKING
+select * from TRIP
+select * from PASSENGER
+select * from PASSENGER_TYPE
+select * from MEMBERSHIP
+GO
+--syth trax for passenger
+CREATE PROCEDURE GetPassengerTypeID
+@PTNamey varchar(50),
+@PTIDy INT OUTPUT
+AS
+
+SET @PTIDy = (SELECT PassengerTypeID FROM PASSENGER_TYPE WHERE PassengerTypeName = @PTNamey)
+GO
+
+CREATE PROCEDURE GetMemberShip
+@MNamey varchar(50),
+@MIDy INT OUTPUT
+AS
+
+SET @MIDy = (SELECT MembershipID FROM MEMBERSHIP WHERE MembershipName = @MNamey)
+GO
+
+CREATE PROCEDURE InsertPassenger
+@PFname varchar(50),
+@PLname varchar(50),
+@PBirth date,
+@PTName varchar(50),
+@MName varchar(50)
+
+AS
+
+DECLARE @PT_ID INT, @M_ID INT
+
+EXEC GetPassengerTypeID
+@PTNamey = @PTName,
+@PTIDy = @PT_ID OUTPUT
+
+IF @PT_ID is null
+	BEGIN
+		PRINT '@PT_ID returns null, something is wrong with the data';
+		THROW 55001, '@PT_ID cannot be null. Terminating the process', 1;
+	END
+
+
+EXEC GetMemberShip
+@MNamey = @MName,
+@MIDy = @M_ID OUTPUT
+
+IF @M_ID is null
+	BEGIN
+		PRINT '@M_ID returns null, something is wrong with the data';
+		THROW 55001, '@M_ID cannot be null. Terminating the process', 1;
+	END
+
+BEGIN TRANSACTION T1
+INSERT INTO PASSENGER(PassengerTypeID, MembershipID, PassengerFname, PassengerLname, PassengerDOB)
+VALUES (@PT_ID, @M_ID, @PFname, @PLname, @PBirth)
+COMMIT TRANSACTION T1
+GO
+
+CREATE PROCEDURE Wraper_insert_passenger @RUN INT
+AS
+
+DECLARE @PF varchar(50), @PL varchar(50), @PBDay Date
+DECLARE @PT_RowCount INT = (SELECT COUNT(*) FROM PASSENGER_TYPE)
+DECLARE @M_RowCount INT = (SELECT COUNT(*) FROM MEMBERSHIP)
+DECLARE @P_RowCount INT = (SELECT COUNT(*) FROM PEEPS.dbo.tblCUSTOMER)
+DECLARE @PT_PK INT
+DECLARE @M_PK INT
+DECLARE @P_PK INT
+
+DECLARE @PTN varchar(50)
+DECLARE @MN varchar(50)
+
+WHILE @RUN > 0
+
+BEGIN
+SET @PT_PK = (SELECT RAND() * @PT_RowCount + 1)
+SET @PTN = (SELECT PassengerTypeName FROM PASSENGER_TYPE WHERE PassengerTypeID = @PT_PK)
+
+SET @M_PK = (SELECT RAND() * @M_RowCount + 1)
+SET @MN = (SELECT MembershipName FROM MEMBERSHIP WHERE MembershipID = @M_PK)
+
+SET @P_PK = (SELECT RAND() * @P_RowCount + 1)
+SET @PF = (SELECT CustomerFname FROM PEEPS.dbo.tblCUSTOMER WHERE CustomerID = @P_PK)
+SET @PL = (SELECT CustomerLname FROM PEEPS.dbo.tblCUSTOMER WHERE CustomerID = @P_PK)
+SET @PBDay = (SELECT DateOfBirth FROM PEEPS.dbo.tblCUSTOMER WHERE CustomerID = @P_PK)
+
+EXEC InsertPassenger
+@PFname = @PF,
+@PLname  = @PL,
+@PBirth = @PBDay,
+@PTName = @PTN,
+@MName = @MN
+
+SET @RUN = @RUN -1
+END
+
+EXEC Wraper_insert_passenger 100000
+
+INSERT INTO PASSENGER(PassengerFname, PassengerLname, PassengerDOB)
+SELECT TOP 100000 CustomerFname, CustomerLname, DateOfBirth
+FROM PEEPS.dbo.tblCUSTOMER
+Go
