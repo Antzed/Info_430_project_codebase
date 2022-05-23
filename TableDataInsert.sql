@@ -202,7 +202,99 @@ EXEC Wraper_insert_passenger 100000
 
 --insert data to CABIN
 
-select * from  SHIP
+select * from SHIP
+GO
 
+INSERT INTO CABIN(CabinName, CabinDescr)
+VALUES('Interior rooms', 'Small interior rooms are the most budget friendly on any cruise ship. Just keep in mind that they dont have windows to the sea'),
+('Ocean view rooms', 'For those who want some sunlight and a glimpse of the ocean from their room, ocean views are a great compromise between the lower price of an interior room and the jump up to a full on balcony.'),
+('Balcony rooms', 'Balcony rooms let you get a bit of fresh air from the comfort of your own room. That can be a blessing when you need a break from the lively vibes elsewhere on your cruise.'),
+('Suites', 'If you are looking for luxury on your cruise, suites offer the most space and best room locations, often with separate living and sleeping areas. They generally feature large balconies, and extra amenities and perks. In other words, a suite can be considered the best cabin on any cruise ship.'),
+('Outside rooms', 'These rooms feature a window or porthole with a view to the sea, often similarly sized to an inside cabin (or a bit larger). Outside cabins are also referred to as oceanview rooms')
+GO
+
+
+--INSERT DATA TO SHIP CABIN
 Create PROCEDURE GetShipID
-@
+@SNamey varchar(100),
+@SIDy INT OUTPUT
+
+AS
+
+SET @SIDy= (SELECT ShipID FROM SHIP WHERE ShipName = @SNamey)
+GO
+
+CREATE PROCEDURE GetCabinID
+@CNamey varchar(50),
+@CIDy INT OUTPUT
+
+AS
+SET @CIDy = (SELECT CabinID FROM CABIN WHERE CabinName = @CNamey)
+GO
+
+CREATE PROCEDURE InsertCabinShip
+@SName varchar(100),
+@CName varchar(50)
+
+AS
+
+DECLARE @C_ID INT, @S_ID INT
+
+EXEC GetShipID
+@SNamey = @SName,
+@SIDy = @S_ID OUTPUT
+
+IF @S_ID is null
+	BEGIN
+		PRINT '@S_ID returns null, something is wrong with the data';
+		THROW 55001, '@S_ID cannot be null. Terminating the process', 1;
+	END
+
+EXEC GetCabinID
+@CNamey = @CName,
+@CIDy = @C_ID OUTPUT
+
+IF @C_ID is null
+	BEGIN
+		PRINT '@C_ID returns null, something is wrong with the data';
+		THROW 55001, '@C_ID cannot be null. Terminating the process', 1;
+	END
+
+BEGIN TRANSACTION T1
+INSERT INTO CABIN_SHIP(CabinID, ShipID)
+VALUES (@C_ID, @S_ID)
+COMMIT TRANSACTION T1
+GO
+
+CREATE PROCEDURE Wraper_insert_CabinShip @RUN INT
+AS
+
+DECLARE @C_RowCount INT = (SELECT COUNT(*) FROM CABIN)
+DECLARE @S_RowCount INT = (SELECT COUNT(*) FROM SHIP)
+
+DECLARE @C_PK INT
+DECLARE @S_PK INT
+
+DECLARE @CN varchar(50)
+DECLARE @SN varchar(50)
+
+WHILE @RUN > 0
+
+BEGIN
+SET @C_PK = (SELECT RAND() * @C_RowCount + 1)
+SET @CN = (SELECT CabinName FROM CABIN WHERE CabinID = @C_PK)
+
+SET @S_PK = (SELECT RAND() * @S_RowCount + 1)
+SET @SN = (SELECT ShipName FROM SHIP WHERE ShipID = @S_PK)
+
+EXEC InsertCabinShip
+@SName = @SN,
+@CName = @CN
+
+SET @RUN = @RUN -1
+END
+
+EXEC Wraper_insert_CabinShip 1000
+EXEC Wraper_insert_CabinShip 3000
+
+SELECT * FROM CABIN_SHIP WHERE ShipID = 25
