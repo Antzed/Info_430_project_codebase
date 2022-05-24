@@ -8,6 +8,8 @@ INSERT INTO MEMBERSHIP(MembershipName, MembershipDescr)
 VALUES('Classic', 'default'), ('Silver', '1000 travel points'), ('Gold',  '10,000 travel points'), ('Diamond', '20,000 travel points'), ('Lifelong', '50,000 travel points')
 GO
 
+INSERT INTO RATING (RatingNum, RatingDesc)
+VALUES ('1', 'Not satisfied'), ('2', 'Slightly not satisfied'), ('3', 'Just okay'), ('4', 'Good'), ('5', 'Excellent')
 
 
 INSERT INTO SHIP_TYPE (ShipTypeName, ShipTypeDescr)
@@ -618,6 +620,189 @@ END
 
 EXEC Wraper_insert_CabinShip 500000
 
-SELECT * FROM CABIN_SHIP 
 
-select * from TRIP
+
+
+CREATE PROCEDURE getRatingID 
+@RNum INT, 
+@RID INT OUTPUT
+AS 
+
+SET @RID = (SELECT RatingID FROM RATING WHERE RatingNum = @RNum )
+GO 
+
+CREATE PROCEDURE getBookingID 
+@FName VARCHAR(50), 
+@LName VARCHAR(50), 
+@DOB DATE, 
+@TBD DATE, 
+@RN VARCHAR(50),
+@BID INT OUTPUT
+AS
+
+SET @BID = (SELECT BookingID FROM BOOKING B 
+            JOIN PASSENGER P ON B.PassengerID = P.PassengerID
+            JOIN TRIP T ON B.TripID = T.TripID
+            JOIN ROUTES R ON T.RouteID = R.RouteID
+            WHERE P.PassengerFname = @FName
+            AND P.PassengerLname = @LName
+            AND P.PassengerDOB = @DOB
+            AND T.TripBeginDate = @TBD
+            AND R.RouteName = @RN)
+GO 
+
+CREATE PROCEDURE insertReview 
+@RTitle VARCHAR(40), 
+@RContent VARCHAR(2000), 
+@RDate DATE, 
+@RN INT,
+@FN VARCHAR(50), 
+@LN VARCHAR(50), 
+@BDate DATE, 
+@TBDate DATE, 
+@RouteN VARCHAR(50)
+AS 
+
+DECLARE @R_ID INT, @B_ID INT 
+
+EXEC getRatingID
+@RNum = @RN, 
+@RID = @R_ID OUTPUT
+
+EXEC getBookingID
+@FName = @FN, 
+@LName = @LN, 
+@DOB = @BDate, 
+@TBD = @TBDate, 
+@RN = @RouteN,
+@BID = @B_ID OUTPUT
+
+BEGIN TRANSACTION T1
+INSERT INTO REVIEW (BookingID, RatingID, ReviewTitle, ReviewContent, ReviewDate)
+VALUES (@B_ID, @R_ID, @RTitle, @RContent, @RDate)
+COMMIT TRANSACTION T1
+GO 
+
+CREATE PROCEDURE populateReviewWrapper
+@RUN INT 
+AS 
+
+DECLARE @FN VARCHAR(50), @LN VARCHAR(50), @BDate DATE, @RNum INT, @TBDate DATE, @ReviewDate DATE, @RouteN VARCHAR(50)
+DECLARE @RouteRowCount INT = (SELECT COUNT(*) FROM ROUTES)
+DECLARE @PassRowCount INT = (SELECT COUNT(*) FROM PASSENGER)
+DECLARE @R_PK INT, @P_PK INT
+
+WHILE @RUN > 0
+BEGIN 
+SET @R_PK = (SELECT RAND() * @RouteRowCount + 1)
+SET @P_PK = (SELECT RAND() * @PassRowCount + 1)
+SET @FN = (SELECT PassengerFname FROM PASSENGER WHERE PassengerID = @P_PK)
+SET @LN = (SELECT PassengerLname FROM PASSENGER WHERE PassengerID = @P_PK)
+SET @BDate = (SELECT PassengerDOB FROM PASSENGER WHERE PassengerID = @P_PK)
+SET @RouteN = (SELECT RouteName FROM ROUTES WHERE RouteID = @R_PK)
+SET @TBDate = (SELECT GETDATE() - (RAND() * 100))
+SET @ReviewDate = (SELECT GETDATE() - (RAND() * 100))
+SET @RNum = (SELECT RAND() * 4 + 1)
+
+EXEC insertReview
+@RTitle = 'My Review', 
+@RContent = 'This route is interesting..', 
+@RDate = @ReviewDate, 
+@RN = @RNum,
+@FN = @FN, 
+@LN = @LN, 
+@BDate = @BDate, 
+@TBDate = @TBDate, 
+@RouteN = @RouteN
+
+SET @RUN = @RUN - 1
+END 
+GO 
+
+--waiting for other tables to populate to run review
+--can't fimd a port dataset
+
+INSERT INTO COUNTRY (CountryName)
+SELECT DISTINCT Country
+FROM working_Copy_Cities
+
+ALTER TABLE COUNTRY 
+DROP COLUMN CountryID 
+ADD CountryID INT IDENTITY (1,1)
+
+DBCC CHECKIDENT ('Country', RESEED, 0)
+
+select * from Country
+
+DELETE FROM COUNTRY
+
+CREATE PROCEDURE getCountryID
+@CName VARCHAR(50),
+@CID INT OUTPUT
+AS 
+
+SET @CID = (SELECT CountryID FROM COUNTRY WHERE CountryName = @CName)
+GO 
+
+CREATE PROCEDURE insertPort
+@CityN VARCHAR(50), 
+@CounN VARCHAR(50)
+AS 
+
+DECLARE @Country_ID INT, @City_ID INT
+
+EXEC getCountryID
+@CName = @CounN, 
+@CID = @Country_ID OUTPUT
+
+IF @Country_ID is null
+	BEGIN
+		PRINT '@C_ID returns null, something is wrong with the data';
+		THROW 55001, '@ C_ID cannot be null. Terminating the process', 1;
+	END
+
+BEGIN TRANSACTION T1
+INSERT INTO CITY(CityName, CountryID)
+VALUES (@CityN, @Country_ID)
+
+SET @City_ID = SCOPE_IDENTITY()
+
+INSERT INTO PORT(PortName, PortDescr, CityID)
+VALUES(@CityN, 'This is a port', @City_ID)
+COMMIT TRANSACTION T1
+GO 
+
+--insert wrapper
+
+SELECT * INTO Working_Copy_Cities FROM raw_cities
+
+alter table Working_Copy_Cities
+add CityID int identity(1,1)
+
+select * from Working_Copy_Cities
+
+
+CREATE PROCEDURE wrapperPort
+
+AS
+DECLARE @CityName VARCHAR(50), @CounName VARCHAR(50)
+
+DECLARE @Counter INT, @MinID INT
+
+SET @Counter = (SELECT COUNT(CityID) FROM Working_Copy_Cities)
+SET @MinID = (SELECT MIN(CityID) FROM Working_Copy_Cities)
+
+WHILE (@MinID IS NOT NULL)
+BEGIN 
+    SET @CityName = (SELECT city FROM Working_Copy_Cities WHERE CityID = @MinID)
+    SET @CounName = (SELECT country FROM Working_Copy_Cities WHERE CityID = @MinID)
+
+    exec insertPort
+    @CityN = @CityName,
+    @CounN = @CounName
+
+    DELETE FROM Working_Copy_Cities WHERE CityID = @MinID
+    SET @MinID = (SELECT MIN(CityID) FROM Working_Copy_Cities)
+END
+
+EXEC wrapperPort

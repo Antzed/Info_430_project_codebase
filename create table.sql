@@ -41,10 +41,8 @@ GO
 CREATE TABLE RATING
 (
     RatingID INT IDENTITY(1,1) PRIMARY KEY, 
-    RatingTitle VARCHAR(40) NOT NULL, 
     RatingNum INT NOT NULL, 
-    RatingDesc VARCHAR(100) NOT NULL, 
-    Rating VARCHAR(40) NOT NULL
+    RatingDesc VARCHAR(100) NOT NULL
 )
 GO 
 
@@ -180,7 +178,7 @@ GO
  DROP COLUMN ShipID
  GO
 
- SELECT *¡¡from CABIN
+ SELECT *ï¿½ï¿½from CABIN
 
 	--create bridge table between CAIBIN and SHIP
 CREATE TABLE CABIN_SHIP
