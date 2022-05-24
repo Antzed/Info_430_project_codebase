@@ -519,7 +519,8 @@ EXEC InsertPassenger
 SET @RUN = @RUN -1
 END
 
-EXEC Wraper_insert_passenger 100000
+EXEC Wraper_insert_passenger 500000
+select * from PASSENGER where PassengerFname = 'Anthony'
 
 --insert data to CABIN
 
@@ -615,7 +616,8 @@ EXEC InsertCabinShip
 SET @RUN = @RUN -1
 END
 
-EXEC Wraper_insert_CabinShip 1000
-EXEC Wraper_insert_CabinShip 3000
+EXEC Wraper_insert_CabinShip 500000
 
-SELECT * FROM CABIN_SHIP WHERE ShipID = 25
+SELECT * FROM CABIN_SHIP 
+
+select * from TRIP
