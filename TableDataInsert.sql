@@ -417,7 +417,7 @@ BEGIN
 END
 GO
 
-populateTripCrew 100
+exec populateTripCrew 100
 GO
 
 
@@ -619,8 +619,139 @@ SET @RUN = @RUN -1
 END
 
 EXEC Wraper_insert_CabinShip 500000
+GO
+--Insert booking table
+Create PROCEDURE GetPassengerID
+@PFnamey varchar(50),
+@PLnamey varchar(50),
+@PDOBy date,
+@PIDy INT OUTPUT
+
+AS
+
+SET @PIDy= (SELECT PassengerID FROM PASSENGER WHERE PassengerFname = @PFnamey
+												AND PassengerLname = @PLnamey
+												AND PassengerDOB = @PDOBy)
+GO
+
+CREATE PROCEDURE GetTripID_2
+@TRNamey varchar(50),
+@TEPNamey varchar(50),
+@TDPNamey varchar(50),
+@TBDaty date,
+@TIDy INT OUTPUT
+
+AS
+SET @TIDy = (SELECT TripID FROM TRIP T
+							JOIN ROUTES R on T.RouteID = R.RouteID
+							JOIN PORT Pd on T.DisembarkPortID = Pd.PortID 
+							JOIN PORT Pe on T.EmbarkPortID = Pe.PortID
+						   WHERE R.RouteName = @TRNamey
+						   AND Pd.PortName = @TDPNamey
+						   AND Pd.PortName = @TEPNamey
+						   AND T.TripBeginDate = @TBDaty)
+GO
 
 
+CREATE PROCEDURE InsertBooking
+@PFname varchar(50),
+@PLname varchar(50),
+@PDOB date,
+@TRName varchar(50),
+@TEPName varchar(50),
+@TDPName varchar(50),
+@TBDate date,
+@BDT Datetime,
+@F decimal(10, 2)
+
+
+AS
+
+DECLARE @P_ID INT, @T_ID INT
+
+EXEC GetPassengerID
+@PFnamey = @PFname,
+@PLnamey = @PLname,
+@PDOBy = @PDOB,
+@PIDy = @P_ID OUTPUT
+
+IF @P_ID is null
+	BEGIN
+		PRINT '@P_ID returns null, something is wrong with the data';
+		THROW 55001, '@P_ID cannot be null. Terminating the process', 1;
+	END
+
+EXEC GetTripID_2
+@TRNamey = @TRName,
+@TEPNamey = @TEPName,
+@TDPNamey = @TDPName,
+@TBDaty = @TBDate,
+@TIDy = @T_ID OUTPUT
+
+IF @T_ID is null
+	BEGIN
+		PRINT '@T_ID returns null, something is wrong with the data';
+		THROW 55001, '@T_ID cannot be null. Terminating the process', 1;
+	END
+
+BEGIN TRANSACTION T1
+INSERT INTO BOOKING(PassengerID, TripID, BookDateTime, Fare)
+VALUES (@P_ID, @T_ID, @BDT, @F)
+COMMIT TRANSACTION T1
+GO
+
+CREATE PROCEDURE Wraper_insert_Booking @RUN INT
+AS
+
+DECLARE @P_RowCount INT = (SELECT COUNT(*) FROM PASSENGER)
+DECLARE @T_RowCount INT = (SELECT COUNT(*) FROM TRIP)
+
+DECLARE @P_PK INT
+DECLARE @T_PK INT
+
+DECLARE @PFnamez varchar(50), @PLnamez varchar(50), @Pdobz date
+DECLARE @TRNamez varchar(50), @TEPNamez varchar(50), @TDPNamez varchar(50), @TBDatz date
+
+DECLARE @BDTz datetime, @Farez decimal(10, 2)
+
+WHILE @RUN > 0
+
+BEGIN
+SET @P_PK = (SELECT RAND() * @P_RowCount + 1)
+SET @PFnamez = (SELECT PassengerFname FROM PASSENGER WHERE PassengerID = @P_PK)
+SET @PLnamez = (SELECT PassengerLname FROM PASSENGER WHERE PassengerID = @P_PK)
+SET @Pdobz = (SELECT PassengerDOB FROM PASSENGER WHERE PassengerID = @P_PK)
+
+SET @T_PK = (SELECT RAND() * @T_RowCount + 1)
+SET @TRNamez = (SELECT R.RouteName FROM TRIP T
+							JOIN ROUTES R on T.RouteID = R.RouteID
+						  WHERE T.TripID = @T_PK)
+SET @TEPNamez = (SELECT Pe.PortName FROM TRIP T
+							JOIN Port Pe on T.EmbarkPortID = Pe.PortID
+						  WHERE T.TripID = @T_PK)
+SET @TDPNamez = (SELECT Pd.PortName FROM TRIP T
+							JOIN Port Pd on T.DisembarkPortID = Pd.PortID
+						  WHERE T.TripID = @T_PK)
+SET @TBDatz = (SELECT TripBeginDate FROM TRIP WHERE TripID = @T_PK)
+
+SET @BDTz = (SELECT GetDate() - (SELECT RAND() * 10000))
+SET @Farez = (SELECT ROUND((SELECT RAND()*10000), 2))
+
+EXEC InsertBooking
+@PFname = @PFnamez,
+@PLname = @PLnamez,
+@PDOB = @Pdobz,
+@TRName = @TRNamez,
+@TEPName = @TEPNamez,
+@TDPName = @TDPNamez,
+@TBDate = @TBDatz,
+@BDT = @BDTz,
+@F = @Farez
+
+SET @RUN = @RUN -1
+END
+
+EXEC Wraper_insert_Booking 500000
 
 
 CREATE PROCEDURE getRatingID 
