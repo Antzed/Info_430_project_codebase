@@ -620,6 +620,8 @@ END
 
 EXEC Wraper_insert_CabinShip 500000
 GO
+
+
 --Insert booking table
 Create PROCEDURE GetPassengerID
 @PFnamey varchar(50),
@@ -754,6 +756,8 @@ END
 EXEC Wraper_insert_Booking 500000
 GO
 
+
+--Insert data to REVIEW
 CREATE PROCEDURE getRatingID 
 @RNum INT, 
 @RID INT OUTPUT
@@ -911,7 +915,7 @@ alter table Working_Copy_Cities
 add CityID int identity(1,1)
 
 select * from Working_Copy_Cities
-
+GO
 
 CREATE PROCEDURE wrapperPort
 
