@@ -1,4 +1,43 @@
+--Whitney
 --1) Stored procedure
+--Populate FACILITY Table; Create Procedure look up GetFacilityTypeID first
+CREATE PROCEDURE GetFacilityTypeID
+@FtType varchar(50),
+@FtID INT OUTPUT
+AS
+SET @FtID = (SELECT FacilityTypeID FROM FACILITY_TYPE WHERE FacilityTypeName = @FtType)
+GO
+ 
+CREATE PROCEDURE InsertFacility
+@FtName varchar(50),
+@FtDescr varchar(225),
+@FacName varchar(50),
+@FacDesc varchar(225),
+@FacFee numeric(8,2)
+AS
+DECLARE @FT_ID INT
+ 
+EXEC GetFacilityTypeID
+@FtType = @FtName,
+@FtID = @FT_ID OUTPUT
+ 
+IF @FT_ID IS NULL
+   BEGIN
+       PRINT '@FT_ID is Null, check spelling';
+       THROW 50002,'@FT_ID cannot be null; Process is terminating', 1;
+   END
+BEGIN TRANSACTION T1
+INSERT INTO FACILITY (FacilityTypeID, FacilityName, FacilityDescr, FacilityFee)
+VALUES(@FT_ID, @FacName, @FacDesc, @FacFee)
+IF @@ERROR <> 0
+   BEGIN
+       PRINT '@@ERROR is showing an error somewhere...terminating process'
+       ROLLBACK TRANSACTION T1
+   END
+ELSE
+   COMMIT TRANSACTION T1
+GO
+
 -- Populate SHIP Table
 CREATE PROCEDURE GetShipTypeID
 @StName varchar(50),
@@ -143,6 +182,10 @@ EXEC PopShipFacility
 SET @RUN = @RUN - 1
 END 
 GO
+
+group5WRAPPER_PopShipFacility 1000
+
+
 -- 2) Check constraint
 -- No ship launched less than 3 years can have a FacilityName 'Slot Machine' and passangers younger than 6 years old
 CREATE FUNCTION fn_NoShipUnder3Years()
@@ -293,23 +336,24 @@ FROM SHIP S
     JOIN ROUTES R ON T.RouteID = R.RouteID 
 WHERE T.Duration = 14
 GROUP BY S.ShipName, S.YearLaunch, S.Tonnage, S.Capacity, S.CabinCount, R.RouteName
-GO 
+ORDER BY TotalNumShips
 
+CREATE VIEW AvgRating_Over2yrs
+AS
+SELECT S.ShipID, S.ShipName, R.ReviewDate, AVG(RA.RatingNum) AS AvgRating_Over2yrs
+FROM SHIP S 
+    JOIN CABIN_SHIP CP ON C.ShipID = CP.ShipID
+    JOIN CABIN C ON CP.CabinID = C.CabinID
+    JOIN BOOK_CABIN BC ON C.CabinID = BC.CabinID
+    JOIN BOOKING B ON BC.BookingID = B.BookingID
+    JOIN REVIEW R ON B.BookingID = R.BookingID
+    JOIN RATING RA ON R.RatingID = RA.RatingID
+WHERE YEAR(B.BookDateTime) BETWEEN 2017 AND 2019
+GROUP BY S.ShipID, S.ShipName, R.ReviewDate
+HAVING AVG(RA.RatingNum) > 3.5
 
-SELECT * FROM TotalShips_Route
-
-DROP VIEW TotalShips_Route
-GO
-
-
-
-
-
-
-
-
-
-
+SELECT * FROM TotalShips_Route A 
+JOIN AvgRating_Over2yrs B ON A.ShipID = B.ShipID
 
 
 -- Joy
