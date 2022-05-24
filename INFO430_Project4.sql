@@ -261,6 +261,7 @@ FROM PASSENGER P
     JOIN CITY CT ON PT.CityID = CT.CityID 
 WHERE C.CityName = 'Seattle'
 GROUP BY P.PassengerFname, P.PassengerLname, S.ShipName, T.TripBeginDate
+ORDER BY NumPassengers
 
 CREATE VIEW ShipReviews_Past2
 AS 
@@ -292,7 +293,7 @@ FROM SHIP S
     JOIN ROUTES R ON T.RouteID = R.RouteID 
 WHERE T.Duration = 14
 GROUP BY S.ShipName, S.YearLaunch, S.Tonnage, S.Capacity, S.CabinCount, R.RouteName
-
+ORDER BY TotalNumShips
 
 CREATE VIEW AvgRating_Over2yrs
 AS
