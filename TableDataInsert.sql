@@ -46,7 +46,6 @@ VALUES ('1', 'Main dinning room', 'Where people can eat in a large room', '0'),
 ('2', 'Discotheques', 'People can dance', '0'),
 ('2', 'Karraoke lounge', 'People can sing', '0'),
 ('2', 'Water park', 'Where people can play with water', '0'),
-('2', 'Discotheques', 'People can dance', '0'),
 ('2', 'Casinos', 'People can play card games and earn money', '10'),
 ('2', 'Slot Machine', 'People can play games on machines and earn money', '5'),
 ('3', 'Duty-free store', 'Products without duty', '150'),
@@ -755,7 +754,7 @@ END
 
 EXEC Wraper_insert_Booking 500000
 GO
-SELECT * FROM¡¡TRIP ORDER BY TripID
+SELECT * FROMÂ¡Â¡TRIP ORDER BY TripID
 
 
 --Insert data to REVIEW
