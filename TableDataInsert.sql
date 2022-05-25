@@ -46,7 +46,6 @@ VALUES ('1', 'Main dinning room', 'Where people can eat in a large room', '0'),
 ('2', 'Discotheques', 'People can dance', '0'),
 ('2', 'Karraoke lounge', 'People can sing', '0'),
 ('2', 'Water park', 'Where people can play with water', '0'),
-('2', 'Discotheques', 'People can dance', '0'),
 ('2', 'Casinos', 'People can play card games and earn money', '10'),
 ('2', 'Slot Machine', 'People can play games on machines and earn money', '5'),
 ('3', 'Duty-free store', 'Products without duty', '150'),
@@ -790,9 +789,11 @@ END
 
 EXEC Wraper_insert_Booking 500000
 GO
+SELECT * FROM¡¡TRIP ORDER BY TripID
 
 
 --Insert data to REVIEW
+--getRatingID
 CREATE PROCEDURE getRatingID 
 @RNum INT, 
 @RID INT OUTPUT
@@ -801,6 +802,7 @@ AS
 SET @RID = (SELECT RatingID FROM RATING WHERE RatingNum = @RNum )
 GO 
 
+--getBookingID
 CREATE PROCEDURE getBookingID 
 @FName VARCHAR(50), 
 @LName VARCHAR(50), 
@@ -821,6 +823,7 @@ SET @BID = (SELECT BookingID FROM BOOKING B
             AND R.RouteName = @RN)
 GO 
 
+--stored procedure to insert review
 CREATE PROCEDURE insertReview 
 @RTitle VARCHAR(40), 
 @RContent VARCHAR(2000), 
@@ -853,6 +856,7 @@ VALUES (@B_ID, @R_ID, @RTitle, @RContent, @RDate)
 COMMIT TRANSACTION T1
 GO 
 
+--wrapper for inserting review
 CREATE PROCEDURE populateReviewWrapper
 @RUN INT 
 AS 
@@ -889,9 +893,21 @@ SET @RUN = @RUN - 1
 END 
 GO 
 
---waiting for other tables to populate to run review
---can't fimd a port dataset
+EXEC populateReviewWrapper 500000
 
+--insert unique records into copy of raw data
+SELECT City, Country INTO Working_Copy_Cities 
+FROM raw_cities
+GROUP BY City, Country HAVING COUNT(*) = 1
+
+
+alter table Working_Copy_Cities
+add CityID int identity(1,1)
+
+select * from Working_Copy_Cities
+GO
+
+--Insert into country
 INSERT INTO COUNTRY (CountryName)
 SELECT DISTINCT Country
 FROM working_Copy_Cities
@@ -900,12 +916,11 @@ ALTER TABLE COUNTRY
 DROP COLUMN CountryID 
 ADD CountryID INT IDENTITY (1,1)
 
-DBCC CHECKIDENT ('Country', RESEED, 0)
+--DBCC CHECKIDENT ('Trip', RESEED, 0)
 
 select * from Country
 
-DELETE FROM COUNTRY
-
+--getCountryID
 CREATE PROCEDURE getCountryID
 @CName VARCHAR(50),
 @CID INT OUTPUT
@@ -914,6 +929,7 @@ AS
 SET @CID = (SELECT CountryID FROM COUNTRY WHERE CountryName = @CName)
 GO 
 
+--insert into city and port
 CREATE PROCEDURE insertPort
 @CityN VARCHAR(50), 
 @CounN VARCHAR(50)
@@ -943,14 +959,6 @@ COMMIT TRANSACTION T1
 GO 
 
 --insert wrapper
-
-SELECT * INTO Working_Copy_Cities FROM raw_cities
-
-alter table Working_Copy_Cities
-add CityID int identity(1,1)
-
-select * from Working_Copy_Cities
-GO
 
 CREATE PROCEDURE wrapperPort
 
@@ -1130,3 +1138,5 @@ SET @RUN = @RUN -1
 END
 
 EXEC Wraper_insert_BookCabin 500000
+
+SELECT COUNT(*) FROM PASSENGER
