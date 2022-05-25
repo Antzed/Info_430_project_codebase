@@ -101,7 +101,7 @@ GO
 
 
 
-USE group5_INFO430
+-- Joy
 -- insert crew
 INSERT INTO CREW(CrewFName, CrewLName, CrewDOB)
 SELECT [StudentFname], [StudentLname], [StudentBirth]
