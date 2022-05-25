@@ -354,7 +354,7 @@ HAVING AVG(RA.RatingNum) > 3.5
 
 SELECT * FROM TotalShips_Route A 
 JOIN AvgRating_Over2yrs B ON A.ShipID = B.ShipID
-
+GO
 
 -- Joy
 -- 1) Stored procedure
@@ -378,7 +378,7 @@ AS
 SET @RoleID = (SELECT RoleID FROM ROLES WHERE RoleName = @Name AND RoleDescr = @Descr)
 GO
 
-CREATE PROCEDURE getTripID
+ALTER PROCEDURE getTripID
 @RouteN VARCHAR(50),
 @CountryName_E varchar(50),
 @CityName_E VARCHAR(50),
@@ -401,10 +401,10 @@ SET @TripID = (SELECT TripID FROM TRIP T JOIN ROUTES R ON T.RouteID = R.RouteID
         AND CE.CityName = @CityName_E AND PE.PortName = @PortName_E
         AND CO.CountryName = @CountryName_D
         AND C.CityName = @CityName_D AND P.PortName = @PortName_D
-        AND T.TripBeginDate = @BeginDate AND Duration = @Durations)
+        AND T.TripBeginDate = @BeginDate AND T.Duration = @Durations)
 GO
 
-CREATE PROCEDURE insertTRIP_CREW
+ALTER PROCEDURE insertTRIP_CREW
 @RouteNP VARCHAR(50),
 @CountryName_EP varchar(50),
 @CityName_EP VARCHAR(50),
@@ -432,7 +432,7 @@ EXEC getTripID
 @PortName_D = @PortName_DP,
 @BeginDate = @BeginDateP,
 @Durations = @DurationsP,
-@TripID = @TRIP_ID
+@TripID = @TRIP_ID OUTPUT
 
 IF @TRIP_ID IS NULL
     BEGIN
@@ -444,7 +444,7 @@ EXEC getCrewID
 @Fname = @FnameP,
 @Lname = @LnameP,
 @DOB = @DOBP,
-@CrewID = @CREW_ID
+@CrewID = @CREW_ID OUTPUT
 
 IF @CREW_ID IS NULL
     BEGIN
@@ -455,7 +455,7 @@ IF @CREW_ID IS NULL
 EXEC getRoleID
 @Name = @ROLEName,
 @Descr = @ROLEDescr,
-@RoleID = @ROLE_ID
+@RoleID = @ROLE_ID OUTPUT
 
 IF @ROLE_ID IS NULL
     BEGIN
@@ -470,7 +470,7 @@ COMMIT TRAN T1
 GO
 
 
-CREATE PROCEDURE populateTripCrew
+ALTER PROCEDURE populateTripCrew
 @RUN INT
 AS
 DECLARE
@@ -501,20 +501,20 @@ BEGIN
     SET @C_PK = (SELECT RAND() * @CrewRowCount + 1)
     SET @T_PK = (SELECT RAND() * @TripRowCount + 1)
     SET @RouteN = (SELECT RouteName FROM ROUTES R JOIN TRIP T ON R.RouteID = T.RouteID WHERE TripID = @T_PK)
-    SET @CountryName_E = (SELECT CountryName FROM Trip T JOIN PORT P ON T.EmbarkPortID = P.PortID JOIN CITY C ON P.CityID = C.CityID
+    SET @CountryName_E = (SELECT CountryName FROM TRIP T JOIN PORT P ON T.EmbarkPortID = P.PortID JOIN CITY C ON P.CityID = C.CityID
         JOIN COUNTRY CO ON C.CountryID = CO.CountryID
         WHERE TripID = @T_PK)
-    SET @CityName_E = (SELECT CityName FROM Trip T JOIN PORT P ON T.EmbarkPortID = P.PortID JOIN CITY C ON P.CityID = C.CityID
+    SET @CityName_E = (SELECT CityName FROM TRIP T JOIN PORT P ON T.EmbarkPortID = P.PortID JOIN CITY C ON P.CityID = C.CityID
         WHERE TripID = @T_PK)
-    SET @PortName_E = (SELECT PortName from Trip T JOIN PORT P ON T.EmbarkPortID = P.PortID WHERE TripID = @T_PK)
+    SET @PortName_E = (SELECT PortName from TRIP T JOIN PORT P ON T.EmbarkPortID = P.PortID WHERE TripID = @T_PK)
     SET @CountryName_D = (SELECT CountryName FROM Trip T JOIN PORT P ON T.DisembarkPortID = P.PortID JOIN CITY C ON P.CityID = C.CityID
         JOIN COUNTRY CO ON C.CountryID = CO.CountryID
         WHERE TripID = @T_PK)
-    SET @CityName_D = (SELECT CityName FROM Trip T JOIN PORT P ON T.DisembarkPortID = P.PortID JOIN CITY C ON P.CityID = C.CityID
+    SET @CityName_D = (SELECT CityName FROM TRIP T JOIN PORT P ON T.DisembarkPortID = P.PortID JOIN CITY C ON P.CityID = C.CityID
         WHERE TripID = @T_PK)
-    SET @PortName_D = (SELECT PortName FROM Trip T JOIN PORT P ON T.DisembarkPortID = P.PortID WHERE TripID = @T_PK)
-    SET @BeginDate = (SELECT GetDate() - (RAND() * 10000))
-    SET @Durations = (SELECT RAND() * 10000)
+    SET @PortName_D = (SELECT PortName FROM TRIP T JOIN PORT P ON T.DisembarkPortID = P.PortID WHERE TripID = @T_PK)
+    SET @BeginDate = (SELECT TripBeginDate FROM TRIP WHERE TripID = @T_PK)
+    SET @Durations = (SELECT Duration FROM TRIP WHERE TripID = @T_PK)
     SET @Fname = (SELECT CrewFName FROM CREW WHERE CrewID = @C_PK)
     SET @Lname = (SELECT CrewLName FROM CREW WHERE CrewID = @C_PK)
     SET @DOB = (SELECT CrewDOB FROM CREW WHERE CrewID = @C_PK)
@@ -541,7 +541,7 @@ BEGIN
 END
 GO
 
-populateTripCrew 100
+populateTripCrew 500000
 GO
 
 -- Use synthetic transaction to insert Trip table
@@ -618,7 +618,7 @@ VALUES(@Route_ID, @PortE_ID, @PortD_ID, @Begin, @Duration)
 COMMIT TRAN T1
 GO
 
-CREATE PROCEDURE wraperPopTrip
+ALTER PROCEDURE wraperPopTrip
 @RUN INT
 AS
 DECLARE @RouteName VARCHAR(50),
@@ -644,20 +644,20 @@ BEGIN
     SET @D_PK = (SELECT RAND() * @PortRowCount + 1)
     SET @RouteName = (SELECT RouteName FROM ROUTES WHERE RouteID = @R_PK)
     SET @RouteDescr = (SELECT RouteDescr FROM ROUTES WHERE RouteID = @R_PK)
-    SET @CountryName_Em = (SELECT CountryName FROM PORT P JOIN CITY C ON P.CityID = C.CityID
+    SET @CountryName_Em = (SELECT TOP 1 CountryName FROM PORT P JOIN CITY C ON P.CityID = C.CityID
         JOIN COUNTRY CO ON C.CountryID = CO.CountryID
         WHERE P.PortID = @E_PK)
-    SET @CityName_Em = (SELECT CityName FROM PORT P JOIN CITY C ON P.CityID = C.CityID
+    SET @CityName_Em = (SELECT TOP 1 CityName FROM PORT P JOIN CITY C ON P.CityID = C.CityID
         WHERE P.PortID = @E_PK)
-    SET @PortName_Em = (SELECT PortName from PORT WHERE PortID = @E_PK)
-    SET @CountryName_Di = (SELECT CountryName FROM PORT P JOIN CITY C ON P.CityID = C.CityID
+    SET @PortName_Em = (SELECT TOP 1 PortName from PORT WHERE PortID = @E_PK)
+    SET @CountryName_Di = (SELECT TOP 1 CountryName FROM PORT P JOIN CITY C ON P.CityID = C.CityID
         JOIN COUNTRY CO ON C.CountryID = CO.CountryID
         WHERE P.PortID = @D_PK)
-    SET @CityName_Di = (SELECT CityName FROM PORT P JOIN CITY C ON P.CityID = C.CityID
+    SET @CityName_Di = (SELECT TOP 1 CityName FROM PORT P JOIN CITY C ON P.CityID = C.CityID
         WHERE P.PortID = @D_PK)
-    SET @PortName_Di = (SELECT PortName from PORT WHERE PortID = @D_PK)
+    SET @PortName_Di = (SELECT TOP 1 PortName from PORT WHERE PortID = @D_PK)
     SET @BeginDate = (SELECT GetDate() - (RAND() * 10000))
-    SET @Durations = (SELECT RAND() * 10000)
+    SET @Durations = (SELECT RAND() * 100)
 
     EXEC populateTrip
     @RouteN = @RouteName,
@@ -675,7 +675,7 @@ BEGIN
 END
 GO
 
-EXEC wraperPopTrip 100
+EXEC wraperPopTrip 500000
 GO
 
 -- 2) Check constraint
@@ -703,11 +703,11 @@ IF EXISTS (
             GROUP BY C.CrewID, C.CrewFName, C.CrewLName
             HAVING COUNT(R.RouteID) > 5) AS subq ON C.CrewID = subq.CrewID
     WHERE T.Duration > 5 AND CO.CountryName = 'China'
-    GROUP BY C.CrewID, C.CrewFName, C.CrewLName
-    HAVING COUNT(TP.TripCrewID) > 5
         AND RO.RoleName = 'Waiter' 
         AND R.RouteName LIKE '%SOU%'
         AND T.Duration > 10
+    GROUP BY C.CrewID, C.CrewFName, C.CrewLName, CountRoutes
+    HAVING COUNT(TP.TripCrewID) > 5
 )
 BEGIN
     SET @RET = 1
@@ -771,7 +771,7 @@ DECLARE @RET NUMERIC(12,2) = (SELECT COUNT(T.TripID)
         JOIN BOOKING B ON T.TripID = B.TripID
         JOIN REVIEW RE ON B.BookingID = RE.BookingID
         JOIN RATING RA ON RE.RatingID = RA.RatingID
-    WHERE RA.Rating > 1
+    WHERE RA.RatingNum > 1
         AND YEAR(T.TripBeginDate) = YEAR(GetDate())
         AND CO.CountryID = @PK_ID)
 RETURN @RET
@@ -811,13 +811,13 @@ GO
 -- with ranking more than 2.
 CREATE VIEW vwTopTrip
 AS
-SELECT TOP 10 WITH TIES T.TripID, T.TripName, COUNT(R.ReviewID) as CountReview
+SELECT TOP 10 WITH TIES T.TripID, COUNT(R.ReviewID) as CountReview
 FROM TRIP T JOIN BOOKING B ON T.TripID = B.TripID
     JOIN PASSENGER P ON B.PassengerID = P.PassengerID
     JOIN MEMBERSHIP M ON P.MembershipID = M.MembershipID
     JOIN REVIEW R ON B.BookingID = R.BookingID
     JOIN RATING RA ON R.RatingID = RA.RatingID
-    JOIN BOOKING_CABIN BC ON B.BookingID = BC.BookingID
+    JOIN BOOK_CABIN BC ON B.BookingID = BC.BookingID
     JOIN CABIN C ON BC.CabinID = C.CabinID
     JOIN CABIN_SHIP CS ON C.CabinID = CS.CabinID
     JOIN SHIP S ON CS.ShipID = S.ShipID
@@ -825,15 +825,15 @@ WHERE P.PassengerDOB < (GETDATE() - 20 * 365)
     AND M.MembershipName = 'Classic'
     AND C.CabinName = 'Suites'
     AND S.ShipName IN ('Glory', 'Inspiration', 'Victory','Galaxy')
-    AND RA.Rating > 2
-GROUP BY T.TripID, T.TripName
+    AND RA.RatingNum > 2
+GROUP BY T.TripID
 HAVING COUNT(R.ReviewID) > 4
 ORDER BY COUNT(R.ReviewID) DESC
 GO
 
 -- Determine the 13th trip with most passengers that disembark in Japan and have more than 
 -- 1000 crews as waiter
-CREATE VIEW vwOldestCrew
+CREATE VIEW vwOldestCrews
 AS
 WITH CTE_OldestCrew(TripID, CountBooking, CountCrew, RankBooking)
 AS (
@@ -854,9 +854,7 @@ AS (
 SELECT TripID, CountBooking, RankBooking
 FROM CTE_OldestCrew
 WHERE RankBooking = 13
-ORDER BY TotalNumShips
 GO
-
 
 
 

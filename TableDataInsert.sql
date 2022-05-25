@@ -174,11 +174,23 @@ EXEC getRouteID
 @RDescr = @RouteD,
 @RouteID = @Route_ID OUTPUT
 
+IF @Route_ID IS NULL
+    BEGIN
+        PRINT 'Route ID is null';
+        THROW 55628, '@Route_ID IS NULL', 1;
+    END
+
 EXEC getPortID
 @CountryN = @CountryName_E,
 @CityN = @CityName_E,
 @PortN = @PortName_E,
 @PortID = @PortE_ID OUTPUT
+
+IF @PortE_ID IS NULL
+    BEGIN
+        PRINT 'Embark Port ID is null';
+        THROW 55143, '@PortE_ID IS NULL', 1;
+    END
 
 EXEC getPortID
 @CountryN = @CountryName_D,
@@ -186,13 +198,19 @@ EXEC getPortID
 @PortN = @PortName_D,
 @PortID = @PortD_ID OUTPUT
 
+IF @PortD_ID IS NULL
+    BEGIN
+        PRINT 'Disembark Port ID is null';
+        THROW 55143, '@PortD_ID IS NULL', 1;
+    END
+
 BEGIN TRAN T1
 INSERT INTO TRIP(RouteID, EmbarkPortID, DisembarkPortID, TripBeginDate, Duration)
 VALUES(@Route_ID, @PortE_ID, @PortD_ID, @Begin, @Duration)
 COMMIT TRAN T1
 GO
 
-CREATE PROCEDURE wraperPopTrip
+ALTER PROCEDURE wraperPopTrip
 @RUN INT
 AS
 DECLARE @RouteName VARCHAR(50),
@@ -218,20 +236,20 @@ BEGIN
     SET @D_PK = (SELECT RAND() * @PortRowCount + 1)
     SET @RouteName = (SELECT RouteName FROM ROUTES WHERE RouteID = @R_PK)
     SET @RouteDescr = (SELECT RouteDescr FROM ROUTES WHERE RouteID = @R_PK)
-    SET @CountryName_Em = (SELECT CountryName FROM PORT P JOIN CITY C ON P.CityID = C.CityID
+    SET @CountryName_Em = (SELECT TOP 1 CountryName FROM PORT P JOIN CITY C ON P.CityID = C.CityID
         JOIN COUNTRY CO ON C.CountryID = CO.CountryID
         WHERE P.PortID = @E_PK)
-    SET @CityName_Em = (SELECT CityName FROM PORT P JOIN CITY C ON P.CityID = C.CityID
+    SET @CityName_Em = (SELECT TOP 1 CityName FROM PORT P JOIN CITY C ON P.CityID = C.CityID
         WHERE P.PortID = @E_PK)
-    SET @PortName_Em = (SELECT PortName from PORT WHERE PortID = @E_PK)
-    SET @CountryName_Di = (SELECT CountryName FROM PORT P JOIN CITY C ON P.CityID = C.CityID
+    SET @PortName_Em = (SELECT TOP 1 PortName from PORT WHERE PortID = @E_PK)
+    SET @CountryName_Di = (SELECT TOP 1 CountryName FROM PORT P JOIN CITY C ON P.CityID = C.CityID
         JOIN COUNTRY CO ON C.CountryID = CO.CountryID
         WHERE P.PortID = @D_PK)
-    SET @CityName_Di = (SELECT CityName FROM PORT P JOIN CITY C ON P.CityID = C.CityID
+    SET @CityName_Di = (SELECT TOP 1 CityName FROM PORT P JOIN CITY C ON P.CityID = C.CityID
         WHERE P.PortID = @D_PK)
-    SET @PortName_Di = (SELECT PortName from PORT WHERE PortID = @D_PK)
+    SET @PortName_Di = (SELECT TOP 1 PortName from PORT WHERE PortID = @D_PK)
     SET @BeginDate = (SELECT GetDate() - (RAND() * 10000))
-    SET @Durations = (SELECT RAND() * 10000)
+    SET @Durations = (SELECT RAND() * 100)
 
     EXEC populateTrip
     @RouteN = @RouteName,
@@ -249,7 +267,7 @@ BEGIN
 END
 GO
 
-EXEC wraperPopTrip 100
+EXEC wraperPopTrip 500000
 GO
 
 -- INSERT TRIP_CREW
@@ -272,7 +290,7 @@ AS
 SET @RoleID = (SELECT RoleID FROM ROLES WHERE RoleName = @Name AND RoleDescr = @Descr)
 GO
 
-CREATE PROCEDURE getTripID
+ALTER PROCEDURE getTripID
 @RouteN VARCHAR(50),
 @CountryName_E varchar(50),
 @CityName_E VARCHAR(50),
@@ -295,10 +313,10 @@ SET @TripID = (SELECT TripID FROM TRIP T JOIN ROUTES R ON T.RouteID = R.RouteID
         AND CE.CityName = @CityName_E AND PE.PortName = @PortName_E
         AND CO.CountryName = @CountryName_D
         AND C.CityName = @CityName_D AND P.PortName = @PortName_D
-        AND T.TripBeginDate = @BeginDate AND Duration = @Durations)
+        AND T.TripBeginDate = @BeginDate AND T.Duration = @Durations)
 GO
 
-CREATE PROCEDURE insertTRIP_CREW
+ALTER PROCEDURE insertTRIP_CREW
 @RouteNP VARCHAR(50),
 @CountryName_EP varchar(50),
 @CityName_EP VARCHAR(50),
@@ -326,18 +344,36 @@ EXEC getTripID
 @PortName_D = @PortName_DP,
 @BeginDate = @BeginDateP,
 @Durations = @DurationsP,
-@TripID = @TRIP_ID
+@TripID = @TRIP_ID OUTPUT
+
+IF @TRIP_ID IS NULL
+    BEGIN
+        PRINT 'Trip ID is null';
+        THROW 55143, '@TRIP_ID IS NULL', 1;
+    END
 
 EXEC getCrewID
 @Fname = @FnameP,
 @Lname = @LnameP,
 @DOB = @DOBP,
-@CrewID = @CREW_ID
+@CrewID = @CREW_ID OUTPUT
+
+IF @CREW_ID IS NULL
+    BEGIN
+        PRINT 'Crew ID is null';
+        THROW 55143, '@CREW_ID IS NULL', 1;
+    END
 
 EXEC getRoleID
 @Name = @ROLEName,
 @Descr = @ROLEDescr,
-@RoleID = @ROLE_ID
+@RoleID = @ROLE_ID OUTPUT
+
+IF @ROLE_ID IS NULL
+    BEGIN
+        PRINT 'Role ID is null';
+        THROW 55143, '@ROLE_ID IS NULL', 1;
+    END
 
 BEGIN TRAN T1
 INSERT INTO TRIP_CREW(TripID, CrewID, RoleID)
@@ -346,7 +382,7 @@ COMMIT TRAN T1
 GO
 
 
-CREATE PROCEDURE populateTripCrew
+ALTER PROCEDURE populateTripCrew
 @RUN INT
 AS
 DECLARE
@@ -377,20 +413,20 @@ BEGIN
     SET @C_PK = (SELECT RAND() * @CrewRowCount + 1)
     SET @T_PK = (SELECT RAND() * @TripRowCount + 1)
     SET @RouteN = (SELECT RouteName FROM ROUTES R JOIN TRIP T ON R.RouteID = T.RouteID WHERE TripID = @T_PK)
-    SET @CountryName_E = (SELECT CountryName FROM Trip T JOIN PORT P ON T.EmbarkPortID = P.PortID JOIN CITY C ON P.CityID = C.CityID
+    SET @CountryName_E = (SELECT CountryName FROM TRIP T JOIN PORT P ON T.EmbarkPortID = P.PortID JOIN CITY C ON P.CityID = C.CityID
         JOIN COUNTRY CO ON C.CountryID = CO.CountryID
         WHERE TripID = @T_PK)
-    SET @CityName_E = (SELECT CityName FROM Trip T JOIN PORT P ON T.EmbarkPortID = P.PortID JOIN CITY C ON P.CityID = C.CityID
+    SET @CityName_E = (SELECT CityName FROM TRIP T JOIN PORT P ON T.EmbarkPortID = P.PortID JOIN CITY C ON P.CityID = C.CityID
         WHERE TripID = @T_PK)
-    SET @PortName_E = (SELECT PortName from Trip T JOIN PORT P ON T.EmbarkPortID = P.PortID WHERE TripID = @T_PK)
+    SET @PortName_E = (SELECT PortName from TRIP T JOIN PORT P ON T.EmbarkPortID = P.PortID WHERE TripID = @T_PK)
     SET @CountryName_D = (SELECT CountryName FROM Trip T JOIN PORT P ON T.DisembarkPortID = P.PortID JOIN CITY C ON P.CityID = C.CityID
         JOIN COUNTRY CO ON C.CountryID = CO.CountryID
         WHERE TripID = @T_PK)
-    SET @CityName_D = (SELECT CityName FROM Trip T JOIN PORT P ON T.DisembarkPortID = P.PortID JOIN CITY C ON P.CityID = C.CityID
+    SET @CityName_D = (SELECT CityName FROM TRIP T JOIN PORT P ON T.DisembarkPortID = P.PortID JOIN CITY C ON P.CityID = C.CityID
         WHERE TripID = @T_PK)
-    SET @PortName_D = (SELECT PortName FROM Trip T JOIN PORT P ON T.DisembarkPortID = P.PortID WHERE TripID = @T_PK)
-    SET @BeginDate = (SELECT GetDate() - (RAND() * 10000))
-    SET @Durations = (SELECT RAND() * 10000)
+    SET @PortName_D = (SELECT PortName FROM TRIP T JOIN PORT P ON T.DisembarkPortID = P.PortID WHERE TripID = @T_PK)
+    SET @BeginDate = (SELECT TripBeginDate FROM TRIP WHERE TripID = @T_PK)
+    SET @Durations = (SELECT Duration FROM TRIP WHERE TripID = @T_PK)
     SET @Fname = (SELECT CrewFName FROM CREW WHERE CrewID = @C_PK)
     SET @Lname = (SELECT CrewLName FROM CREW WHERE CrewID = @C_PK)
     SET @DOB = (SELECT CrewDOB FROM CREW WHERE CrewID = @C_PK)
@@ -417,9 +453,8 @@ BEGIN
 END
 GO
 
-exec populateTripCrew 100
+populateTripCrew 500000
 GO
-
 
 --INSERT booking information
 select * from BOOKING
