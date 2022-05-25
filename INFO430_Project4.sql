@@ -81,62 +81,84 @@ GO
 
 -- Populate SHIP_FACILITY Table
 CREATE PROCEDURE GetShipID
+@STypeName varchar(50),
 @SpN varchar(50),
-@SpLaunch char(4),
-@StName varchar(50),
+@SDescr varchar(225),
+@CabinCount NUMERIC(5,2),
+@Yr char(4),
+@Tonnage NUMERIC(8,2),
+@Capacity NUMERIC(8,2),
 @SpID INT OUTPUT
 AS
-SET @SpID = (SELECT S.ShipID 
-FROM SHIP S
-            JOIN SHIP_TYPE ST ON S.ShipTypeID = ST.ShipTypeID
-WHERE S.ShipName = @SpN 
-AND S.YearLaunch = @SpLaunch
-AND ST.ShipTypeName = @StName)
-GO 
+SET @SpID = (SELECT S.ShipID
+    FROM SHIP S
+           JOIN SHIP_TYPE ST ON S.ShipTypeID = ST.ShipTypeID
+            WHERE S.ShipName = @SpN
+            AND S.ShipDescr = @SDescr
+            AND S.CabinCount = @CabinCount
+            AND S.YearLaunch = @Yr
+            AND S.Tonnage = @Tonnage
+            AND S.Capacity = @Capacity
+            AND ST.ShipTypeName = @STypeName)
+GO
 --Look up table GetFacilityID
-CREATE PROCEDURE GetFacilityID 
+CREATE PROCEDURE GetFacilityID
 @FacName varchar(50),
+@FDescr varchar(225),
 @FacFee NUMERIC(8,2),
 @FtName varchar(50),
-@FacID INT OUTPUT 
+@FacID INT OUTPUT
 AS
-SET @FacID = (SELECT F.FacilityID 
-FROM FACILITY F 
-            JOIN FACILITY_TYPE FT ON F.FacilityTypeID = FT.FacilityTypeID
-WHERE F.FacilityName = @FacName
-AND FT.FacilityTypeName = @FtName)
+SET @FacID = (SELECT F.FacilityID
+FROM FACILITY F
+           JOIN FACILITY_TYPE FT ON F.FacilityTypeID = FT.FacilityTypeID
+            WHERE F.FacilityName = @FacName
+            AND F.FacilityDescr = @FDescr
+            AND FT.FacilityTypeName = @FtName)
 GO
+
 -- Insert SHIP_FACILITY Table
 CREATE PROCEDURE PopShipFacility
 @Ship varchar(50),
+@ShipDescr varchar(225),
+@Cabin Numeric(5,2),
+@Y char(4),
+@Ton Numeric(8,2),
+@Cap Numeric(8,2),
 @ShipType varchar(50),
 @FacType varchar(50),
-@YrLaunch char(4),
 @Facility varchar(50),
-@FacFee Numeric(8,2)
+@FtFee Numeric(8,2),
+@Fdescr varchar(225)
 AS
 DECLARE @SP_ID INT, @FAC_ID INT
-
+ 
 EXEC GetShipID
+@STypeName = @ShipType,
 @SpN = @Ship,
-@SpLaunch = @YrLaunch,
-@StName = @ShipType,
+@SDescr = @ShipDescr,
+@CabinCount = @Cabin,
+@Yr = @Y,
+@Tonnage = @Ton,
+@Capacity = @Cap,
 @SpID = @SP_ID OUTPUT
 IF @SP_ID IS NULL
-    BEGIN
-        PRINT ' @SP_ID is Null, check spelling';
-        THROW 50014,'@SP_ID cannot be null; Process is terminating', 1;
-    END
-EXEC GetFacilityID 
+   BEGIN
+       PRINT ' @SP_ID is Null, check spelling';
+       THROW 50014,'@SP_ID cannot be null; Process is terminating', 1;
+   END
+
+EXEC GetFacilityID
 @FacName = @Facility,
-@FacFee = @FacFee,
+@FDescr = @Fdescr,
+@FacFee = @FtFee,
 @FtName = @FacType,
-@FacID = @FAC_ID OUTPUT 
+@FacID = @FAC_ID OUTPUT
 IF @FAC_ID IS NULL
-    BEGIN
-        PRINT ' @FAC_ID is Null, check spelling';
-        THROW 50010,'@FAC_ID cannot be null; Process is terminating', 1;
-    END
+   BEGIN
+       PRINT ' @FAC_ID is Null, check spelling';
+       THROW 50010,'@FAC_ID cannot be null; Process is terminating', 1;
+   END
 BEGIN TRANSACTION T1
 INSERT INTO SHIP_FACILITY (ShipID, FacilityID)
 VALUES(@SP_ID, @FAC_ID)
@@ -148,43 +170,55 @@ END
 ELSE
 COMMIT TRANSACTION T1
 GO
+
 --Synthetic Transaction 
 CREATE PROCEDURE group5WRAPPER_PopShipFacility
 @RUN INT
 AS 
-DECLARE @ShipName varchar(50), @Lyear char(4), @Fty varchar(50), @Fee Numeric(8,2), @SpType varchar(50), @FType varchar(50)
+DECLARE @ShipName varchar(50), @SDescr varchar(225), @Cab NUMERIC(5,2), @Tonnage NUMERIC(8,2), @SCap NUMERIC(8,2),
+@Lyear char(4), @Fty varchar(50), @Fee Numeric(8,2), @SpType varchar(50), @FType varchar(50), @FacDescr varchar(225)
+
 DECLARE @ShipRowCount INT = (SELECT COUNT(*) FROM SHIP)
 DECLARE @FacRowCount INT = (SELECT COUNT(*) FROM FACILITY)
-DECLARE @ShipTypeRowCount INT = (SELECT COUNT(*) FROM SHIP_TYPE)
-DECLARE @FacTypeRowCount INT = (SELECT COUNT(*) FROM FACILITY_TYPE)
-DECLARE @ST_ID INT, @Fty_ID INT, @SType_ID INT, @FType_ID INT
+DECLARE @ST_ID INT, @Fty_ID INT
+
 WHILE @RUN > 0
 BEGIN
-SET @ST_ID = (SELECT RAND() * @ShipRowCount +1)
-SET @Fty_ID = (SELECT RAND() * @FacRowCount + 1)
-SET @SType_ID = (SELECT RAND() * @ShipTypeRowCount + 1)
-SET @FType_ID = (SELECT RAND() * @FacTypeRowCount + 1)
-SET @ShipName = (SELECT ShipName FROM SHIP WHERE ShipID = @ST_ID)
-SET @SpType = (SELECT ShipTypeName FROM SHIP_TYPE WHERE ShipTypeID = @SType_ID)
-SET @FType = (SELECT FacilityTypeName FROM FACILITY_TYPE WHERE FacilityTypeID = @FType_ID)
-SET @Lyear = (SELECT YearLaunch FROM SHIP WHERE ShipID = @ST_ID)
-SET @Fty = (SELECT FacilityName FROM FACILITY WHERE FacilityID = @Fty_ID)
-SET @Fee = (SELECT RAND() * 1000 + 1)
+    SET @ST_ID = (SELECT RAND() * @ShipRowCount +1)
+    SET @Fty_ID = (SELECT RAND() * @FacRowCount + 1)
+    SET @ShipName = (SELECT ShipName FROM SHIP WHERE ShipID = @ST_ID)
+    SET @SDescr = (SELECT ShipDescr FROM SHIP WHERE ShipID = @ST_ID)
+    SET  @Cab = (SELECT CabinCount FROM SHIP WHERE ShipID = @ST_ID)
+    SET @Tonnage = (SELECT Tonnage FROM SHIP WHERE ShipID = @ST_ID)
+    SET @SCap = (SELECT Capacity FROM SHIP WHERE ShipID = @ST_ID)
+    SET @Lyear = (SELECT YearLaunch FROM SHIP WHERE ShipID = @ST_ID)
+    SET @FacDescr = (SELECT FacilityDescr FROM FACILITY WHERE FacilityID = @Fty_ID)
+    SET @SpType = (SELECT ShipTypeName FROM SHIP S JOIN SHIP_TYPE ST ON S.ShipTypeID = ST.ShipTypeID
+                    WHERE ShipID = @ST_ID)
+    SET @FType = (SELECT FacilityTypeName FROM FACILITY F
+                    JOIN FACILITY_TYPE FT ON  F.FacilityTypeID = FT.FacilityTypeID 
+                    WHERE FacilityID = @Fty_ID)
+    SET @Fty = (SELECT FacilityName FROM FACILITY WHERE FacilityID = @Fty_ID)
+    SET @Fee = (SELECT FacilityFee FROM FACILITY WHERE FacilityID = @Fty_ID)
 
 EXEC PopShipFacility
 @Ship = @ShipName,
+@ShipDescr = @SDescr,
+@Cabin = @Cab,
+@Y = @Lyear,
+@Ton = @Tonnage,
+@Cap = @SCap,
 @ShipType = @SpType,
 @FacType = @FType,
-@YrLaunch = @Lyear,
 @Facility = @Fty,
-@FacFee = @Fee
+@FtFee = @Fee,
+@Fdescr = @FacDescr
 
 SET @RUN = @RUN - 1
 END 
 GO
 
-group5WRAPPER_PopShipFacility 1000
-
+group5WRAPPER_PopShipFacility 5000
 
 -- 2) Check constraint
 -- No ship launched less than 3 years can have a FacilityName 'Slot Machine' and passangers younger than 6 years old
