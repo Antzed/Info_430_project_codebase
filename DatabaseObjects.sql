@@ -31,13 +31,54 @@ GROUP BY S.ShipName, R.RouteName)
 
 SELECT TOP(10) shipName, RouteName FROM popularRoute_CTE ORDER BY routeRank
 GO
---computed column on how much did passengers spent the trip to hawaii
+--computed column on how much did passengers spent the trip to Japan
 CREATE FUNCTION totalSpending(@PK INT)
 RETURNS INT
 AS
 BEGIN
 
+DECLARE @RET INT = (SELECT SUM(B.Fare)
+					FROM PASSENGER P
+						JOIN BOOKING B on P.PassengerID = B.PassengerID
+						JOIN TRIP T on B.TripID = T.TripID
+						JOIN PORT PO on T.EmbarkPortID = PO.PortID
+						JOIN CITY C on PO.CityID = C.CityID
+						JOIN COUNTRY CY on C.CountryID = CY.CountryID
+					WHERE CY.CountryName = 'Japan'
+					AND P.PassengerID = @PK)
+RETURN @RET
+END
+GO
+
+ALTER TABLE PASSENGER
+ADD totalSpendingJapan
+AS (dbo.totalSpending(P.PassengerID))
+GO
+
+SELECT * FROM COUNTRY
+GO
 --computed column showing the average spending of passenger between the age of 20 to 30
+CREATE FUNCTION averageSpending(@PK INT)
+RETURNS INT
+AS
+BEGIN
+
+DECLARE @RET INT = (SELECT AVG(B.Fare)
+					FROM PASSENGER P
+						JOIN BOOKING B on P.PassengerID = B.PassengerID
+						JOIN TRIP T on B.TripID = T.TripID
+						JOIN PORT PO on T.EmbarkPortID = PO.PortID
+						JOIN CITY C on PO.CityID = C.CityID
+						JOIN COUNTRY CY on C.CountryID = CY.CountryID
+					WHERE P.PassengerID = @PK)
+RETURN @RET
+END
+GO
+
+ALTER TABLE PASSENGER
+ADD averageSpending
+AS (dbo.totalSpending(P.PassengerID))
+GO
 
 --busniess rule no passenger that is nont a adult is allow to book a cuise ship
 

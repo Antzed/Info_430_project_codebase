@@ -507,9 +507,9 @@ SET @M_PK = (SELECT RAND() * @M_RowCount + 1)
 SET @MN = (SELECT MembershipName FROM MEMBERSHIP WHERE MembershipID = @M_PK)
 
 SET @P_PK = (SELECT RAND() * @P_RowCount + 1)
-SET @PF = (SELECT CustomerFname FROM PEEPS.dbo.tblCUSTOMER WHERE CustomerID = @P_PK)
-SET @PL = (SELECT CustomerLname FROM PEEPS.dbo.tblCUSTOMER WHERE CustomerID = @P_PK)
-SET @PBDay = (SELECT DateOfBirth FROM PEEPS.dbo.tblCUSTOMER WHERE CustomerID = @P_PK)
+SET @PF = (SELECT DISTINCT CustomerFname FROM PEEPS.dbo.tblCUSTOMER WHERE CustomerID = @P_PK)
+SET @PL = (SELECT DISTINCT CustomerLname FROM PEEPS.dbo.tblCUSTOMER WHERE CustomerID = @P_PK)
+SET @PBDay = (SELECT DISTINCT DateOfBirth FROM PEEPS.dbo.tblCUSTOMER WHERE CustomerID = @P_PK)
 
 EXEC InsertPassenger
 @PFname = @PF,
@@ -523,6 +523,13 @@ END
 
 EXEC Wraper_insert_passenger 500000
 select * from PASSENGER where PassengerFname = 'Anthony'
+--debug
+ALTER TABLE BOOKING
+DROP CONSTRAINT FK__BOOKING__Passeng__7F2BE32F;
+DELETE FROM PASSENGER
+DBCC CHECKIDENT ('PASSENGER', RESEED, 0)
+SELECT * FROM PASSENGER
+--debug ends
 
 --insert data to CABIN
 
@@ -650,9 +657,45 @@ SET @TIDy = (SELECT TripID FROM TRIP T
 							JOIN PORT Pe on T.EmbarkPortID = Pe.PortID
 						   WHERE R.RouteName = @TRNamey
 						   AND Pd.PortName = @TDPNamey
-						   AND Pd.PortName = @TEPNamey
+						   AND Pe.PortName = @TEPNamey
 						   AND T.TripBeginDate = @TBDaty)
 GO
+DROP PROCEDURE
+
+--debug
+SELECT TripID FROM TRIP T
+				JOIN ROUTES R on T.RouteID = R.RouteID
+				JOIN PORT Pd on T.DisembarkPortID = Pd.PortID 
+				JOIN PORT Pe on T.EmbarkPortID = Pe.PortID
+			  WHERE R.RouteName = 'SOU-SOU'
+			  AND Pd.PortName = 'Villa Carlos Paz'
+			  AND Pe.PortName = 'Saldanha'
+			  AND T.TripBeginDate = '2016-08-23'
+SELECT * FROM TRIP
+SELECT * FROM PORT WHERE PortID = 141
+SELECT * FROM ROUTES WHERE RouteID = 15
+
+SELECT * FROM PASSENGER WHERE PassengerFname = 'Stephany' AND PassengerLname = 'Alesna' AND PassengerDOB = '1937-07-20'
+--Find duplicates
+SELECT PassengerFname, PassengerLname, PassengerDOB, COUNT(*) as count
+FROM PASSENGER
+GROUP BY PassengerFname, PassengerLname, PassengerDOB
+HAVING COUNT(*) > 1
+--delete duplicates
+DELETE FROM PASSENGER
+    WHERE PassengerID NOT IN
+    (
+		SELECT MAX(PassengerID)
+        FROM PASSENGER
+        GROUP BY PassengerFname, PassengerLname, PassengerDOB
+	)
+
+DROP PROCEDURE GetTripID_2
+--debug end
+
+
+
+
 
 
 CREATE PROCEDURE InsertBooking
@@ -693,7 +736,7 @@ EXEC GetTripID_2
 IF @T_ID is null
 	BEGIN
 		PRINT '@T_ID returns null, something is wrong with the data';
-		THROW 55001, '@T_ID cannot be null. Terminating the process', 1;
+		THROW 55002, '@T_ID cannot be null. Terminating the process', 1;
 	END
 
 BEGIN TRANSACTION T1
@@ -701,6 +744,7 @@ INSERT INTO BOOKING(PassengerID, TripID, BookDateTime, Fare)
 VALUES (@P_ID, @T_ID, @BDT, @F)
 COMMIT TRANSACTION T1
 GO
+DROP PROCEDURE InsertBooking
 
 CREATE PROCEDURE Wraper_insert_Booking @RUN INT
 AS
@@ -755,7 +799,11 @@ END
 
 EXEC Wraper_insert_Booking 500000
 GO
-SELECT * FROM¡¡TRIP ORDER BY TripID
+
+SELECT * FROM BOOKING
+DELETE FROM BOOKING
+DBCC CHECKIDENT ('Booking', RESEED, 0)
+
 
 
 --Insert data to REVIEW
