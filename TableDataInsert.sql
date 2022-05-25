@@ -755,6 +755,7 @@ END
 
 EXEC Wraper_insert_Booking 500000
 GO
+SELECT * FROM¡¡TRIP ORDER BY TripID
 
 
 --Insert data to REVIEW
@@ -1095,3 +1096,5 @@ SET @RUN = @RUN -1
 END
 
 EXEC Wraper_insert_BookCabin 500000
+
+SELECT COUNT(*) FROM PASSENGER
