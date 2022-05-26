@@ -220,11 +220,222 @@ GO
 --Miranda: 
     --Stored procedure
 
-    --In Table Data Inserts 
-    --insert into port
-    --port syn trx wrapper
-    --insert into review
-    --review syn trx wrapper
+    --getRatingID
+CREATE PROCEDURE getRatingID 
+@RNum INT, 
+@RID INT OUTPUT
+AS 
+
+SET @RID = (SELECT RatingID FROM RATING WHERE RatingNum = @RNum )
+GO 
+
+--getBookingID
+CREATE PROCEDURE getBookingID 
+@FName VARCHAR(50), 
+@LName VARCHAR(50), 
+@DOB DATE, 
+@TBD DATETIME, 
+@RN VARCHAR(50),
+@BID INT OUTPUT
+AS
+
+SET @BID = (SELECT BookingID FROM BOOKING B 
+            JOIN PASSENGER P ON B.PassengerID = P.PassengerID
+            JOIN TRIP T ON B.TripID = T.TripID
+            JOIN ROUTES R ON T.RouteID = R.RouteID
+            WHERE P.PassengerFname = @FName
+            AND P.PassengerLname = @LName
+            AND P.PassengerDOB = @DOB
+            AND T.TripBeginDate = @TBD
+            AND R.RouteName = @RN)
+GO 
+ 
+
+--stored procedure to insert review
+CREATE PROCEDURE insertReview 
+@RTitle VARCHAR(40), 
+@RContent VARCHAR(2000), 
+@RDate DATE, 
+@RN INT,
+@FN VARCHAR(50), 
+@LN VARCHAR(50), 
+@BDate DATE, 
+@TBDate DATETIME, 
+@RouteN VARCHAR(50)
+AS 
+
+DECLARE @R_ID INT, @B_ID INT 
+
+EXEC getRatingID
+@RNum = @RN, 
+@RID = @R_ID OUTPUT
+
+EXEC getBookingID
+@FName = @FN, 
+@LName = @LN, 
+@DOB = @BDate, 
+@TBD = @TBDate, 
+@RN = @RouteN,
+@BID = @B_ID OUTPUT
+
+IF @R_ID is null
+	BEGIN
+		PRINT '@R_ID returns null, something is wrong with the data';
+		THROW 56001, '@R_ID cannot be null. Terminating the process', 1;
+	END
+
+IF @B_ID is null
+	BEGIN
+		PRINT '@B_ID returns null, something is wrong with the data';
+		THROW 56001, '@B_ID cannot be null. Terminating the process', 1;
+	END
+
+BEGIN TRANSACTION T1
+INSERT INTO REVIEW (BookingID, RatingID, ReviewTitle, ReviewContent, ReviewDate)
+VALUES (@B_ID, @R_ID, @RTitle, @RContent, @RDate)
+COMMIT TRANSACTION T1
+GO 
+
+drop procedure populatereviewwrapper
+--wrapper for inserting review
+CREATE PROCEDURE populateReviewWrapper
+@RUN INT 
+AS 
+
+DECLARE @FN VARCHAR(50), @LN VARCHAR(50), @BDate DATE, @RNum INT, @TBDate Datetime, @ReviewDate DATE, @RouteN VARCHAR(50)
+DECLARE @BookRowCount INT = (SELECT COUNT(*) FROM BOOKING)
+DECLARE @B_PK INT, @P_PK INT
+
+WHILE @RUN > 0
+BEGIN 
+SET @B_PK = (SELECT RAND() * @BookRowCount + 1)
+SET @P_PK = (SELECT PassengerID FROM BOOKING WHERE BookingID = @B_PK)
+SET @FN = (SELECT PassengerFname FROM PASSENGER WHERE PassengerID = @P_PK)
+SET @LN = (SELECT PassengerLname FROM PASSENGER WHERE PassengerID = @P_PK)
+SET @BDate = (SELECT PassengerDOB FROM PASSENGER WHERE PassengerID = @P_PK)
+SET @RouteN = (SELECT RouteName FROM ROUTES R JOIN TRIP T ON R.RouteID = T.RouteID JOIN BOOKING B ON T.TripID = B.TripID WHERE B.BookingID = @B_PK)
+SET @TBDate = (SELECT TripBeginDate FROM TRIP T JOIN BOOKING B ON T.TripID = B.TripID WHERE B.BookingID = @B_PK)
+SET @ReviewDate = (SELECT GETDATE() - (RAND() * 100))
+SET @RNum = (SELECT RAND() * 5 + 1)
+
+IF @B_PK is null
+	BEGIN
+		PRINT '@T_PK returns null, something is wrong with the data';
+		THROW 56001, '@T_PK cannot be null. Terminating the process', 1;
+	END
+IF @P_PK is null
+	BEGIN
+		PRINT '@T_PK returns null, something is wrong with the data';
+		THROW 56001, '@T_PK cannot be null. Terminating the process', 1;
+	END
+
+EXEC insertReview
+@RTitle = 'My Review', 
+@RContent = 'This route is interesting..', 
+@RDate = @ReviewDate, 
+@RN = @RNum,
+@FN = @FN, 
+@LN = @LN, 
+@BDate = @BDate, 
+@TBDate = @TBDate, 
+@RouteN = @RouteN
+
+SET @RUN = @RUN - 1
+END 
+GO 
+
+EXEC populateReviewWrapper 450000
+SELECT * FROM REVIEW
+
+--insert unique records into copy of raw data
+SELECT City, Country INTO Working_Copy_Cities 
+FROM raw_cities
+GROUP BY City, Country HAVING COUNT(*) = 1
+
+alter table Working_Copy_Cities
+add CityID int identity(1,1)
+
+select * from Working_Copy_Cities
+GO
+
+--Insert into country
+INSERT INTO COUNTRY (CountryName)
+SELECT DISTINCT Country
+FROM working_Copy_Cities
+
+ALTER TABLE COUNTRY 
+DROP COLUMN CountryID 
+ADD CountryID INT IDENTITY (1,1)
+
+--DBCC CHECKIDENT ('Trip', RESEED, 0)
+
+select * from Country
+
+--getCountryID
+CREATE PROCEDURE getCountryID
+@CName VARCHAR(50),
+@CID INT OUTPUT
+AS 
+
+SET @CID = (SELECT CountryID FROM COUNTRY WHERE CountryName = @CName)
+GO 
+
+--insert into city and port
+CREATE PROCEDURE insertPort
+@CityN VARCHAR(50), 
+@CounN VARCHAR(50)
+AS 
+
+DECLARE @Country_ID INT, @City_ID INT
+
+EXEC getCountryID
+@CName = @CounN, 
+@CID = @Country_ID OUTPUT
+
+IF @Country_ID is null
+	BEGIN
+		PRINT '@C_ID returns null, something is wrong with the data';
+		THROW 55001, '@ C_ID cannot be null. Terminating the process', 1;
+	END
+
+BEGIN TRANSACTION T1
+INSERT INTO CITY(CityName, CountryID)
+VALUES (@CityN, @Country_ID)
+
+SET @City_ID = SCOPE_IDENTITY()
+
+INSERT INTO PORT(PortName, PortDescr, CityID)
+VALUES(@CityN, 'This is a port', @City_ID)
+COMMIT TRANSACTION T1
+GO 
+
+--insert wrapper
+
+CREATE PROCEDURE wrapperPort
+
+AS
+DECLARE @CityName VARCHAR(50), @CounName VARCHAR(50)
+
+DECLARE @Counter INT, @MinID INT
+
+SET @Counter = (SELECT COUNT(CityID) FROM Working_Copy_Cities)
+SET @MinID = (SELECT MIN(CityID) FROM Working_Copy_Cities)
+
+WHILE (@MinID IS NOT NULL)
+BEGIN 
+    SET @CityName = (SELECT city FROM Working_Copy_Cities WHERE CityID = @MinID)
+    SET @CounName = (SELECT country FROM Working_Copy_Cities WHERE CityID = @MinID)
+
+    exec insertPort
+    @CityN = @CityName,
+    @CounN = @CounName
+
+    DELETE FROM Working_Copy_Cities WHERE CityID = @MinID
+    SET @MinID = (SELECT MIN(CityID) FROM Working_Copy_Cities)
+END
+
+EXEC wrapperPort
+GO
 
     --Check constraint
 
