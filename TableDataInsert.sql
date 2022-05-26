@@ -456,6 +456,7 @@ GO
 populateTripCrew 500000
 GO
 
+--Anthony
 --INSERT booking information
 select * from BOOKING
 select * from TRIP
@@ -847,10 +848,6 @@ DROP PROCEDURE GetTripID_2
 --debug end
 
 
-
-
-
-
 CREATE PROCEDURE InsertBooking
 @PFname varchar(50),
 @PLname varchar(50),
@@ -1030,13 +1027,6 @@ IF @Pdobz is null
 		THROW 55005, '@Pdobz cannot be null. Terminating the process', 1;
 	END
 
-
-
-
---SET @PFnamez = (SELECT PassengerFname FROM PASSENGER WHERE PassengerID = @P_PK)
---SET @PLnamez = (SELECT PassengerLname FROM PASSENGER WHERE PassengerID = @P_PK)
---SET @Pdobz = (SELECT PassengerDOB FROM PASSENGER WHERE PassengerID = @P_PK)
-
 EXEC GetTripPK
 @TRowCount = @T_RowCount,
 @TPK = @T_PK OUTPUT
@@ -1082,19 +1072,6 @@ IF @TBDatz is null
 		THROW 55009, '@TBDatz cannot be null. Terminating the process', 1;
 	END
 
-/*
-SET @TRNamez = (SELECT R.RouteName FROM TRIP T
-							JOIN ROUTES R on T.RouteID = R.RouteID
-						  WHERE T.TripID = @T_PK)
-SET @TEPNamez = (SELECT Pe.PortName FROM TRIP T
-							JOIN Port Pe on T.EmbarkPortID = Pe.PortID
-						  WHERE T.TripID = @T_PK)
-SET @TDPNamez = (SELECT Pd.PortName FROM TRIP T
-							JOIN Port Pd on T.DisembarkPortID = Pd.PortID
-						  WHERE T.TripID = @T_PK)
-SET @TBDatz = (SELECT TripBeginDate FROM TRIP WHERE TripID = @T_PK)
-*/
-
 SET @BDTz = (SELECT GetDate() - (SELECT RAND() * 10000))
 SET @Farez = (SELECT ROUND((SELECT RAND()*10000), 2))
 
@@ -1122,6 +1099,161 @@ SELECT * FROM BOOKING
 DELETE FROM BOOKING
 DBCC CHECKIDENT ('Booking', RESEED, 0)
 
+--insert DATA to BOOK_CABIN
+
+
+Create PROCEDURE GetBookingID_2
+@PFname_b varchar(50),
+@PLname_b varchar(50),
+@PDOB_b date,
+@TRName_b varchar(50),
+@TEPName_b varchar(50),
+@TDPName_b varchar(50),
+@TBDate_b date,
+@BDT_b Datetime,
+@F_b decimal(10, 2),
+@BIDy INT OUTPUT
+
+AS
+
+SET @BIDy= (SELECT BookingID FROM BOOKING B
+								JOIN PASSENGER P on B.PassengerID = P.PassengerID
+								JOIN TRIP T on B.TripID = T.TripID
+								JOIN ROUTES R on T.RouteID = R.RouteID
+								JOIN PORT Pe on T.EmbarkPortID = Pe.PortID
+								JOIN PORT Pd on T.DisembarkPortID = Pe.PortID
+							  WHERE P.PassengerFname = @PFname_b 
+								AND P.PassengerLname = @PLname_b
+								AND P.PassengerDOB = @PDOB_b
+								AND R.RouteName = @TRName_b
+								AND Pe.PortName = @TEPName_b
+								AND Pd.PortName = @TDPName_b
+								AND T.TripBeginDate = @TBDate_b
+								AND B.BookDateTime = @BDT_b
+								AND B.Fare = @F_b)
+GO
+
+CREATE PROCEDURE InsertBookCabin
+@PFname_bc varchar(50),
+@PLname_bc varchar(50),
+@PDOB_bc date,
+@TRName_bc varchar(50),
+@TEPName_bc varchar(50),
+@TDPName_bc varchar(50),
+@TBDate_bc date,
+@BDT_bc Datetime,
+@F_bc decimal(10, 2),
+@CName_bc varchar(50)
+
+
+AS
+
+DECLARE @B_ID INT, @C_ID INT
+
+EXEC GetBookingID_2
+@PFname_b = @PFname_bc,
+@PLname_b = @PLname_bc,
+@PDOB_b = @PDOB_bc,
+@TRName_b = @TRName_bc,
+@TEPName_b = @TEPName_bc,
+@TDPName_b = @TDPName_bc,
+@TBDate_b = @TBDate_bc,
+@BDT_b = @BDT_bc,
+@F_b = @F_bc,
+@BIDy = @B_ID OUTPUT
+
+IF @B_ID is null
+	BEGIN
+		PRINT '@B_ID returns null, something is wrong with the data';
+		THROW 55001, '@B_ID cannot be null. Terminating the process', 1;
+	END
+
+EXEC GetCabinID
+@CNamey = @CName_bc,
+@CIDy = @C_ID OUTPUT
+
+IF @C_ID is null
+	BEGIN
+		PRINT '@C_ID returns null, something is wrong with the data';
+		THROW 55001, '@C_ID cannot be null. Terminating the process', 1;
+	END
+
+BEGIN TRANSACTION T1
+INSERT INTO BOOK_CABIN(BookingID, CabinID)
+VALUES (@B_ID, @C_ID)
+COMMIT TRANSACTION T1
+GO
+
+
+CREATE PROCEDURE Wraper_insert_BookCabin @RUN INT
+AS
+
+DECLARE @B_RowCount INT = (SELECT COUNT(*) FROM BOOKING)
+DECLARE @C_RowCount INT = (SELECT COUNT(*) FROM CABIN)
+
+DECLARE @B_PK INT
+DECLARE @C_PK INT
+
+DECLARE @PFnamez_bcw varchar(50), @PLnamez_bcw varchar(50), @Pdobz_bcw date
+DECLARE @TRNamez_bcw varchar(50), @TEPName_bcw varchar(50), @TDPNamez_bcw varchar(50), @TBDatz_bcw date
+DECLARE @BDTz_bcw datetime, @Farez_bcw decimal(10, 2)
+
+DECLARE @CNamez_bcw varchar(50)
+
+WHILE @RUN > 0
+
+BEGIN
+SET @B_PK = (SELECT RAND() * @B_RowCount + 1)
+SET @PFnamez_bcw = (SELECT P.PassengerFname FROM BOOKING B
+											 JOIN PASSENGER P on B.PassengerID = P.PassengerID
+											 WHERE B.BookingID = @B_PK)
+SET @PLnamez_bcw = (SELECT P.PassengerLname FROM BOOKING B
+											 JOIN PASSENGER P on B.PassengerID = P.PassengerID
+											 WHERE B.BookingID = @B_PK)
+SET @Pdobz_bcw = (SELECT P.PassengerDOB FROM BOOKING B
+											 JOIN PASSENGER P on B.PassengerID = P.PassengerID
+											 WHERE B.BookingID = @B_PK)
+SET @TRNamez_bcw = (SELECT R.RouteName FROM BOOKING B
+									JOIN TRIP T on B.TripID = T.TripID
+									JOIN ROUTES R on T.RouteID = R.RouteID
+								   WHERE B.BookingID = @B_PK)
+SET @TEPName_bcw = (SELECT Pe.PortName FROM BOOKING B
+									JOIN TRIP T on B.TripID = T.TripID
+									JOIN Port Pe on T.EmbarkPortID = Pe.PortID
+									WHERE B.BookingID = @B_PK)
+SET @TDPNamez_bcw = (SELECT Pd.PortName FROM BOOKING B
+										 JOIN TRIP T on B.TripID = T.TripID
+										 JOIN Port Pd on T.DisembarkPortID = Pd.PortID
+									WHERE B.BookingID = @B_PK)
+SET @TBDatz_bcw = (SELECT T.TripBeginDate FROM BOOKING B
+										 JOIN TRIP T on B.TripID = T.TripID
+										WHERE B.BookingID = @B_PK)
+
+SET @BDTz_bcw = (SELECT BookDateTime FROM BOOKING WHERE BookingID = @B_PK)
+SET @Farez_bcw = (SELECT Fare FROM BOOKING WHERE BookingID = @B_PK)
+
+SET @C_PK = (SELECT RAND() * @C_RowCount + 1)
+SET @CNamez_bcw = (SELECT CabinName FROM CABIN WHERE CabinID = @C_PK)
+
+EXEC InsertBookCabin
+@PFname_bc = @Pdobz_bcw,
+@PLname_bc = @PLnamez_bcw,
+@PDOB_bc = @Pdobz_bcw,
+@TRName_bc  = @TRNamez_bcw,
+@TEPName_bc = @TEPName_bcw,
+@TDPName_bc = @TDPNamez_bcw,
+@TBDate_bc = @TBDatz_bcw,
+@BDT_bc = @BDTz_bcw,
+@F_bc = @Farez_bcw,
+@CName_bc = @CNamez_bcw
+
+SET @RUN = @RUN -1
+END
+
+EXEC Wraper_insert_BookCabin 500000
+
+SELECT COUNT(*) FROM PASSENGER
+--Anthony Part end
 
 
 --Insert data to REVIEW
@@ -1318,157 +1450,4 @@ END
 EXEC wrapperPort
 GO
 
---insert DATA to BOOK_CABIN
 
-
-Create PROCEDURE GetBookingID_2
-@PFname_b varchar(50),
-@PLname_b varchar(50),
-@PDOB_b date,
-@TRName_b varchar(50),
-@TEPName_b varchar(50),
-@TDPName_b varchar(50),
-@TBDate_b date,
-@BDT_b Datetime,
-@F_b decimal(10, 2),
-@BIDy INT OUTPUT
-
-AS
-
-SET @BIDy= (SELECT BookingID FROM BOOKING B
-								JOIN PASSENGER P on B.PassengerID = P.PassengerID
-								JOIN TRIP T on B.TripID = T.TripID
-								JOIN ROUTES R on T.RouteID = R.RouteID
-								JOIN PORT Pe on T.EmbarkPortID = Pe.PortID
-								JOIN PORT Pd on T.DisembarkPortID = Pe.PortID
-							  WHERE P.PassengerFname = @PFname_b 
-								AND P.PassengerLname = @PLname_b
-								AND P.PassengerDOB = @PDOB_b
-								AND R.RouteName = @TRName_b
-								AND Pe.PortName = @TEPName_b
-								AND Pd.PortName = @TDPName_b
-								AND T.TripBeginDate = @TBDate_b
-								AND B.BookDateTime = @BDT_b
-								AND B.Fare = @F_b)
-GO
-
-CREATE PROCEDURE InsertBookCabin
-@PFname_bc varchar(50),
-@PLname_bc varchar(50),
-@PDOB_bc date,
-@TRName_bc varchar(50),
-@TEPName_bc varchar(50),
-@TDPName_bc varchar(50),
-@TBDate_bc date,
-@BDT_bc Datetime,
-@F_bc decimal(10, 2),
-@CName_bc varchar(50)
-
-
-AS
-
-DECLARE @B_ID INT, @C_ID INT
-
-EXEC GetBookingID_2
-@PFname_b = @PFname_bc,
-@PLname_b = @PLname_bc,
-@PDOB_b = @PDOB_bc,
-@TRName_b = @TRName_bc,
-@TEPName_b = @TEPName_bc,
-@TDPName_b = @TDPName_bc,
-@TBDate_b = @TBDate_bc,
-@BDT_b = @BDT_bc,
-@F_b = @F_bc,
-@BIDy = @B_ID OUTPUT
-
-IF @B_ID is null
-	BEGIN
-		PRINT '@B_ID returns null, something is wrong with the data';
-		THROW 55001, '@B_ID cannot be null. Terminating the process', 1;
-	END
-
-EXEC GetCabinID
-@CNamey = @CName_bc,
-@CIDy = @C_ID OUTPUT
-
-IF @C_ID is null
-	BEGIN
-		PRINT '@C_ID returns null, something is wrong with the data';
-		THROW 55001, '@C_ID cannot be null. Terminating the process', 1;
-	END
-
-BEGIN TRANSACTION T1
-INSERT INTO BOOK_CABIN(BookingID, CabinID)
-VALUES (@B_ID, @C_ID)
-COMMIT TRANSACTION T1
-GO
-
-
-CREATE PROCEDURE Wraper_insert_BookCabin @RUN INT
-AS
-
-DECLARE @B_RowCount INT = (SELECT COUNT(*) FROM BOOKING)
-DECLARE @C_RowCount INT = (SELECT COUNT(*) FROM CABIN)
-
-DECLARE @B_PK INT
-DECLARE @C_PK INT
-
-DECLARE @PFnamez_bcw varchar(50), @PLnamez_bcw varchar(50), @Pdobz_bcw date
-DECLARE @TRNamez_bcw varchar(50), @TEPName_bcw varchar(50), @TDPNamez_bcw varchar(50), @TBDatz_bcw date
-DECLARE @BDTz_bcw datetime, @Farez_bcw decimal(10, 2)
-
-DECLARE @CNamez_bcw varchar(50)
-
-WHILE @RUN > 0
-
-BEGIN
-SET @B_PK = (SELECT RAND() * @B_RowCount + 1)
-SET @PFnamez_bcw = (SELECT P.PassengerFname FROM BOOKING B
-											 JOIN PASSENGER P on B.PassengerID = P.PassengerID
-											 WHERE B.BookingID = @B_PK)
-SET @PLnamez_bcw = (SELECT P.PassengerLname FROM BOOKING B
-											 JOIN PASSENGER P on B.PassengerID = P.PassengerID
-											 WHERE B.BookingID = @B_PK)
-SET @Pdobz_bcw = (SELECT P.PassengerDOB FROM BOOKING B
-											 JOIN PASSENGER P on B.PassengerID = P.PassengerID
-											 WHERE B.BookingID = @B_PK)
-SET @TRNamez_bcw = (SELECT R.RouteName FROM BOOKING B
-									JOIN TRIP T on B.TripID = T.TripID
-									JOIN ROUTES R on T.RouteID = R.RouteID
-								   WHERE B.BookingID = @B_PK)
-SET @TEPName_bcw = (SELECT Pe.PortName FROM BOOKING B
-									JOIN TRIP T on B.TripID = T.TripID
-									JOIN Port Pe on T.EmbarkPortID = Pe.PortID
-									WHERE B.BookingID = @B_PK)
-SET @TDPNamez_bcw = (SELECT Pd.PortName FROM BOOKING B
-										 JOIN TRIP T on B.TripID = T.TripID
-										 JOIN Port Pd on T.DisembarkPortID = Pd.PortID
-									WHERE B.BookingID = @B_PK)
-SET @TBDatz_bcw = (SELECT T.TripBeginDate FROM BOOKING B
-										 JOIN TRIP T on B.TripID = T.TripID
-										WHERE B.BookingID = @B_PK)
-
-SET @BDTz_bcw = (SELECT BookDateTime FROM BOOKING WHERE BookingID = @B_PK)
-SET @Farez_bcw = (SELECT Fare FROM BOOKING WHERE BookingID = @B_PK)
-
-SET @C_PK = (SELECT RAND() * @C_RowCount + 1)
-SET @CNamez_bcw = (SELECT CabinName FROM CABIN WHERE CabinID = @C_PK)
-
-EXEC InsertBookCabin
-@PFname_bc = @Pdobz_bcw,
-@PLname_bc = @PLnamez_bcw,
-@PDOB_bc = @Pdobz_bcw,
-@TRName_bc  = @TRNamez_bcw,
-@TEPName_bc = @TEPName_bcw,
-@TDPName_bc = @TDPNamez_bcw,
-@TBDate_bc = @TBDatz_bcw,
-@BDT_bc = @BDTz_bcw,
-@F_bc = @Farez_bcw,
-@CName_bc = @CNamez_bcw
-
-SET @RUN = @RUN -1
-END
-
-EXEC Wraper_insert_BookCabin 500000
-
-SELECT COUNT(*) FROM PASSENGER
