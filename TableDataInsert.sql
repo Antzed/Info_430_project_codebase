@@ -1,6 +1,8 @@
 USE group5_INFO430 
 GO
 
+BACKUP DATABASE group5_INFO430 TO DISK = 'C:\SQL\group5_INFO430.BAK' WITH DIFFERENTIAL
+
 INSERT INTO PASSENGER_TYPE(PassengerTypeName)
 VALUES('Adult'), ('Child'), ('Infant without a seat'), ('Infant with a seat'), ('Unaccompanied  child')
 
