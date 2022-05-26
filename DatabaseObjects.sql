@@ -131,6 +131,91 @@ ALTER TABLE BOOK_CABIN
 ADD CONSTRAINT CK_no_classic_suite
 CHECK (dbo.noClassicSuite() = 0)
 
+--one of my database storeprocedure
+CREATE PROCEDURE InsertCabinShip
+@SName varchar(100),
+@CName varchar(50)
+
+AS
+
+DECLARE @C_ID INT, @S_ID INT
+
+EXEC GetShipID
+@SNamey = @SName,
+@SIDy = @S_ID OUTPUT
+
+IF @S_ID is null
+	BEGIN
+		PRINT '@S_ID returns null, something is wrong with the data';
+		THROW 55001, '@S_ID cannot be null. Terminating the process', 1;
+	END
+
+EXEC GetCabinID
+@CNamey = @CName,
+@CIDy = @C_ID OUTPUT
+
+IF @C_ID is null
+	BEGIN
+		PRINT '@C_ID returns null, something is wrong with the data';
+		THROW 55001, '@C_ID cannot be null. Terminating the process', 1;
+	END
+
+BEGIN TRANSACTION T1
+INSERT INTO CABIN_SHIP(CabinID, ShipID)
+VALUES (@C_ID, @S_ID)
+COMMIT TRANSACTION T1
+GO
+
+--another example of store procedure
+CREATE PROCEDURE InsertBooking
+@PFname varchar(50),
+@PLname varchar(50),
+@PDOB date,
+@TRName varchar(50),
+@TEPName varchar(50),
+@TDPName varchar(50),
+@TBDate date,
+@BDT Datetime,
+@F decimal(10, 2)
+
+
+AS
+
+DECLARE @P_ID INT, @T_ID INT
+
+EXEC GetPassengerID
+@PFnamey = @PFname,
+@PLnamey = @PLname,
+@PDOBy = @PDOB,
+@PIDy = @P_ID OUTPUT
+
+IF @P_ID is null
+	BEGIN
+		PRINT '@P_ID returns null, something is wrong with the data';
+		THROW 55001, '@P_ID cannot be null. Terminating the process', 1;
+	END
+
+EXEC GetTripID_2
+@TRNamey = @TRName,
+@TEPNamey = @TEPName,
+@TDPNamey = @TDPName,
+@TBDaty = @TBDate,
+@TIDy = @T_ID OUTPUT
+
+IF @T_ID is null
+	BEGIN
+		PRINT '@T_ID returns null, something is wrong with the data';
+		THROW 55002, '@T_ID cannot be null. Terminating the process', 1;
+	END
+
+BEGIN TRANSACTION T1
+INSERT INTO BOOKING(PassengerID, TripID, BookDateTime, Fare)
+VALUES (@P_ID, @T_ID, @BDT, @F)
+COMMIT TRANSACTION T1
+GO
+
+--Anthony part end
+
 
 --Miranda: 
     --Stored procedure
