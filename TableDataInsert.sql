@@ -429,6 +429,8 @@ select * from PASSENGER_TYPE
 select * from MEMBERSHIP
 GO
 --syth trax for passenger
+
+	--
 CREATE PROCEDURE GetPassengerTypeID
 @PTNamey varchar(50),
 @PTIDy INT OUTPUT
@@ -483,6 +485,68 @@ VALUES (@PT_ID, @M_ID, @PFname, @PLname, @PBirth)
 COMMIT TRANSACTION T1
 GO
 
+--adding a temp table with passenger info
+CREATE TABLE PASSENGER_temp
+(PassengerID INTEGER IDENTITY(1,1) primary key,
+PassengerFname varchar(50) not null,
+PassengerLname varchar(50) not null,
+PassengerDOB Date not null
+ )
+ GO
+
+INSERT INTO PASSENGER_temp(PassengerFname, PassengerLname, PassengerDOB)
+SELECT TOP 1000000 StudentFname, StudentLname, StudentBirth
+FROM UNIVERSITY.dbo.tblSTUDENT
+Go
+
+SELECT * FROM PASSENGER_temp
+GO
+
+DELETE FROM PASSENGER_temp
+DBCC CHECKIDENT ('PASSENGER_temp', RESEED, 0)
+GO
+
+--preparing for concurrency for wrapper_insert_passenger
+CREATE PROCEDURE GetPassengerTypeName
+@PTPK INT,
+@PTN_g varchar(50) OUTPUT
+AS
+
+SET @PTN_g = (SELECT PassengerTypeName FROM PASSENGER_TYPE WHERE PassengerTypeID = @PTPK)
+GO
+
+CREATE PROCEDURE GetMembershipName
+@MPK INT,
+@MN_g varchar(50) OUTPUT
+AS
+
+SET @MN_g = (SELECT MembershipName FROM MEMBERSHIP WHERE MembershipID = @MPK)
+GO
+
+CREATE PROCEDURE GetPassengerFirstName_raw
+@PPK INT,
+@PF_g varchar(50) OUTPUT
+AS
+
+SET @PF_g = (SELECT PassengerFname FROM PASSENGER_temp WHERE PassengerID = @PPK)
+GO
+
+CREATE PROCEDURE GetPassengerLastName_raw
+@PPK INT,
+@PL_g varchar(50) OUTPUT
+AS
+
+SET @PL_g = (SELECT PassengerLname FROM PASSENGER_temp WHERE PassengerID = @PPK)
+GO
+
+CREATE PROCEDURE GetPassengerDOB_raw
+@PPK INT,
+@PBDay_g date OUTPUT
+AS
+
+SET @PBDay_g = (SELECT PassengerDOB FROM PASSENGER_temp WHERE PassengerID = @PPK)
+GO
+
 CREATE PROCEDURE Wraper_insert_passenger @RUN INT
 AS
 
@@ -492,24 +556,73 @@ DECLARE @M_RowCount INT = (SELECT COUNT(*) FROM MEMBERSHIP)
 DECLARE @P_RowCount INT = (SELECT COUNT(*) FROM PEEPS.dbo.tblCUSTOMER)
 DECLARE @PT_PK INT
 DECLARE @M_PK INT
-DECLARE @P_PK INT
+DECLARE @P_PK INT= 1
 
 DECLARE @PTN varchar(50)
 DECLARE @MN varchar(50)
+
 
 WHILE @RUN > 0
 
 BEGIN
 SET @PT_PK = (SELECT RAND() * @PT_RowCount + 1)
-SET @PTN = (SELECT PassengerTypeName FROM PASSENGER_TYPE WHERE PassengerTypeID = @PT_PK)
+
+EXEC GetPassengerTypeName
+@PTPK = @PT_PK,
+@PTN_g = @PTN OUTPUT
+
+IF @PTN is null
+	BEGIN
+		PRINT '@PTN returns null, something is wrong with the data';
+		THROW 54001, '@PTN cannot be null. Terminating the process', 1;
+	END
+
+
+--SET @PTN = (SELECT PassengerTypeName FROM PASSENGER_TYPE WHERE PassengerTypeID = @PT_PK)
 
 SET @M_PK = (SELECT RAND() * @M_RowCount + 1)
-SET @MN = (SELECT MembershipName FROM MEMBERSHIP WHERE MembershipID = @M_PK)
+EXEC GetMembershipName
+@MPK = @M_PK,
+@MN_g = @MN OUTPUT
+--SET @MN = (SELECT MembershipName FROM MEMBERSHIP WHERE MembershipID = @M_PK)
 
-SET @P_PK = (SELECT RAND() * @P_RowCount + 1)
-SET @PF = (SELECT DISTINCT CustomerFname FROM PEEPS.dbo.tblCUSTOMER WHERE CustomerID = @P_PK)
-SET @PL = (SELECT DISTINCT CustomerLname FROM PEEPS.dbo.tblCUSTOMER WHERE CustomerID = @P_PK)
-SET @PBDay = (SELECT DISTINCT DateOfBirth FROM PEEPS.dbo.tblCUSTOMER WHERE CustomerID = @P_PK)
+IF @MN is null
+	BEGIN
+		PRINT '@MN returns null, something is wrong with the data';
+		THROW 54002, '@MN cannot be null. Terminating the process', 1;
+	END
+
+SET @P_PK = @P_PK + 1
+
+EXEC GetPassengerFirstName_raw
+@PPK = @P_PK,
+@PF_g = @PF OUTPUT
+
+IF @PF is null
+	BEGIN
+		PRINT '@PF returns null, something is wrong with the data';
+		THROW 54003, '@PF cannot be null. Terminating the process', 1;
+	END
+
+EXEC GetPassengerLastName_raw
+@PPK = @P_PK,
+@PL_g = @PL OUTPUT
+
+IF @PL is null
+	BEGIN
+		PRINT '@PL returns null, something is wrong with the data';
+		THROW 54004, '@PL cannot be null. Terminating the process', 1;
+	END
+
+EXEC GetPassengerDOB_raw
+@PPK = @P_PK,
+@PBDay_g  = @PBDay OUTPUT
+
+IF @PBDay is null
+	BEGIN
+		PRINT '@PBDay returns null, something is wrong with the data';
+		THROW 54005, '@PBDay cannot be null. Terminating the process', 1;
+	END
 
 EXEC InsertPassenger
 @PFname = @PF,
@@ -519,11 +632,16 @@ EXEC InsertPassenger
 @MName = @MN
 
 SET @RUN = @RUN -1
+DELETE FROM PASSENGER_Temp WHERE PassengerID  = @P_PK
 END
 
-EXEC Wraper_insert_passenger 500000
+EXEC Wraper_insert_passenger 150000
+
 select * from PASSENGER where PassengerFname = 'Anthony'
+DROP TABLE PASSENGER_temp
 --debug
+DROP PROCEDURE Wraper_insert_passenger
+
 ALTER TABLE BOOKING
 DROP CONSTRAINT FK__BOOKING__Passeng__7F2BE32F;
 DELETE FROM PASSENGER
@@ -744,7 +862,85 @@ INSERT INTO BOOKING(PassengerID, TripID, BookDateTime, Fare)
 VALUES (@P_ID, @T_ID, @BDT, @F)
 COMMIT TRANSACTION T1
 GO
+
 DROP PROCEDURE InsertBooking
+GO
+
+CREATE PROCEDURE GetPassengerFirstName
+@PPK INT,
+@PFnamez_g varchar(50) OUTPUT
+AS
+
+SET @PFnamez_g = (SELECT PassengerFname FROM PASSENGER WHERE PassengerID = @PPK)
+GO
+
+CREATE PROCEDURE GetPassengerLastName
+@PPK INT,
+@PLnamez_g varchar(50) OUTPUT
+AS
+
+SET @PLnamez_g = (SELECT PassengerLname FROM PASSENGER WHERE PassengerID = @PPK)
+GO
+
+CREATE PROCEDURE GetPassengerDOB
+@PPK INT,
+@Pdobz_g date OUTPUT
+AS
+
+SET @Pdobz_g = (SELECT PassengerDOB FROM PASSENGER WHERE PassengerID = @PPK)
+GO
+
+CREATE PROCEDURE GetTripRouteName
+@TPK INT,
+@TRNamez_g varchar(50) OUTPUT
+AS
+SET @TRNamez_g = (SELECT R.RouteName FROM TRIP T
+							JOIN ROUTES R on T.RouteID = R.RouteID
+						  WHERE T.TripID = @TPK)
+GO
+
+CREATE PROCEDURE GetEmpartPortName
+@TPK INT,
+@TEPNamez_g varchar(50) OUTPUT
+AS
+SET @TEPNamez_g = (SELECT Pe.PortName FROM TRIP T
+							JOIN Port Pe on T.EmbarkPortID = Pe.PortID
+						  WHERE T.TripID = @TPK)
+GO
+
+CREATE PROCEDURE GetDisemparkPortName
+@TPK INT,
+@TDPNamez_g varchar(50) OUTPUT
+AS
+SET @TDPNamez_g = (SELECT Pd.PortName FROM TRIP T
+							JOIN Port Pd on T.DisembarkPortID = Pd.PortID
+						  WHERE T.TripID = @TPK)
+GO
+
+CREATE PROCEDURE GetTripBeginDate
+@TPK INT,
+@TBDatz_g date OUTPUT
+AS
+SET @TBDatz_g = (SELECT TripBeginDate FROM TRIP WHERE TripID = @TPK)
+GO
+
+CREATE PROCEDURE GetPassengerPK
+@PRowCount INT,
+@PPK INT OUTPUT
+AS
+
+SET @PPK = (SELECT RAND() * @PRowCount + 1)
+GO
+
+CREATE PROCEDURE GetTripPK
+@TRowCount INT,
+@TPK INT OUTPUT
+AS
+
+SET @TPK = (SELECT RAND() * @TRowCount + 1)
+GO
+
+
 
 CREATE PROCEDURE Wraper_insert_Booking @RUN INT
 AS
@@ -763,12 +959,95 @@ DECLARE @BDTz datetime, @Farez decimal(10, 2)
 WHILE @RUN > 0
 
 BEGIN
-SET @P_PK = (SELECT RAND() * @P_RowCount + 1)
-SET @PFnamez = (SELECT PassengerFname FROM PASSENGER WHERE PassengerID = @P_PK)
-SET @PLnamez = (SELECT PassengerLname FROM PASSENGER WHERE PassengerID = @P_PK)
-SET @Pdobz = (SELECT PassengerDOB FROM PASSENGER WHERE PassengerID = @P_PK)
+EXEC GetPassengerPK
+@PRowCount = @P_RowCount,
+@PPK = @P_PK OUTPUT
+--SET @P_PK = (SELECT RAND() * @P_RowCount + 1)
 
-SET @T_PK = (SELECT RAND() * @T_RowCount + 1)
+EXEC GetPassengerFirstName
+@PPK = @P_PK,
+@PFnamez_g = @PFnamez OUTPUT
+
+IF @PFnamez is null
+	BEGIN
+		PRINT '@PFnamez returns null, something is wrong with the data';
+		THROW 55003, '@PFnamez cannot be null. Terminating the process', 1;
+	END
+
+EXEC GetPassengerLastName
+@PPK = @P_PK,
+@PLnamez_g = @PLnamez OUTPUT
+
+IF @PLnamez is null
+	BEGIN
+		PRINT '@PLnamez returns null, something is wrong with the data';
+		THROW 55004, '@PLnamez cannot be null. Terminating the process', 1;
+	END
+
+
+EXEC GetPassengerDOB
+@PPK = @P_PK,
+@Pdobz_g = @Pdobz OUTPUT
+
+IF @Pdobz is null
+	BEGIN
+		PRINT '@Pdobz returns null, something is wrong with the data';
+		THROW 55005, '@Pdobz cannot be null. Terminating the process', 1;
+	END
+
+
+
+
+--SET @PFnamez = (SELECT PassengerFname FROM PASSENGER WHERE PassengerID = @P_PK)
+--SET @PLnamez = (SELECT PassengerLname FROM PASSENGER WHERE PassengerID = @P_PK)
+--SET @Pdobz = (SELECT PassengerDOB FROM PASSENGER WHERE PassengerID = @P_PK)
+
+EXEC GetTripPK
+@TRowCount = @T_RowCount,
+@TPK = @T_PK OUTPUT
+
+EXEC GetTripRouteName
+@TPK = @T_PK,
+@TRNamez_g = @TRNamez OUTPUT
+
+IF @TRNamez is null
+	BEGIN
+		PRINT '@TRNamez returns null, something is wrong with the data';
+		THROW 55006, '@TRNamez cannot be null. Terminating the process', 1;
+	END
+
+EXEC GetEmpartPortName
+@TPK = @T_PK,
+@TEPNamez_g = @TEPNamez OUTPUT
+
+IF @TEPNamez is null
+	BEGIN
+		PRINT '@TEPNamez returns null, something is wrong with the data';
+		THROW 55007, '@TEPNamez cannot be null. Terminating the process', 1;
+	END
+
+
+EXEC GetDisemparkPortName
+@TPK = @T_PK,
+@TDPNamez_g = @TDPNamez OUTPUT
+
+IF @TDPNamez is null
+	BEGIN
+		PRINT '@TDPNamez returns null, something is wrong with the data';
+		THROW 55008, '@TDPNamez cannot be null. Terminating the process', 1;
+	END
+
+EXEC GetTripBeginDate
+@TPK = @T_PK,
+@TBDatz_g = @TBDatz OUTPUT
+
+IF @TBDatz is null
+	BEGIN
+		PRINT '@TBDatz returns null, something is wrong with the data';
+		THROW 55009, '@TBDatz cannot be null. Terminating the process', 1;
+	END
+
+/*
 SET @TRNamez = (SELECT R.RouteName FROM TRIP T
 							JOIN ROUTES R on T.RouteID = R.RouteID
 						  WHERE T.TripID = @T_PK)
@@ -779,6 +1058,7 @@ SET @TDPNamez = (SELECT Pd.PortName FROM TRIP T
 							JOIN Port Pd on T.DisembarkPortID = Pd.PortID
 						  WHERE T.TripID = @T_PK)
 SET @TBDatz = (SELECT TripBeginDate FROM TRIP WHERE TripID = @T_PK)
+*/
 
 SET @BDTz = (SELECT GetDate() - (SELECT RAND() * 10000))
 SET @Farez = (SELECT ROUND((SELECT RAND()*10000), 2))
@@ -797,9 +1077,12 @@ EXEC InsertBooking
 SET @RUN = @RUN -1
 END
 
+DROP PROCEDURE Wraper_insert_Booking
+GO
 EXEC Wraper_insert_Booking 500000
 GO
 
+SELECT count(*) FROM BOOKING
 SELECT * FROM BOOKING
 DELETE FROM BOOKING
 DBCC CHECKIDENT ('Booking', RESEED, 0)
