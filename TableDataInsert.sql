@@ -11,7 +11,7 @@ GO
 INSERT INTO RATING (RatingNum, RatingDesc)
 VALUES ('1', 'Not satisfied'), ('2', 'Slightly not satisfied'), ('3', 'Just okay'), ('4', 'Good'), ('5', 'Excellent')
 
-
+--Whitney
 INSERT INTO SHIP_TYPE (ShipTypeName, ShipTypeDescr)
 VALUES('Mainstream Cruise Ship', 'The most common and known type of cruise ship, marketed to suit the needs of the majority of passengers, with all sorts of standard resort features'),
 ('Mega Cruise Ship', 'Can accommodate more than 5,000 persons, and they are currently the largest and more sophisticated vessels in the world'),
@@ -22,7 +22,7 @@ VALUES('Mainstream Cruise Ship', 'The most common and known type of cruise ship,
 ('Expedition Cruise Ship', 'Specially designed ships, or adapted research or icebreaker vessels, operated by specialized companies to offer their customers an exclusive experience in remote destinations'),
 ('River Cruise Ship', 'Have a capacity for no more than a few hundred passengers, and are specially designed to navigate rivers and inland waterways')
 GO
-
+--Insert Facility type
 INSERT INTO FACILITY_TYPE (FacilityTypeName, FacilityTypeDescr)
 VALUES ('Dinning', 'Provide food services'), 
 ('Entertainment', 'People can have fun'),
@@ -30,7 +30,7 @@ VALUES ('Dinning', 'Provide food services'),
 ('Sporting Facilities', 'People can workout and play sports'),
 ('Medical Facilities','Medical or emergency treatment')
 GO
-
+-- Insert Facility
 INSERT INTO FACILITY (FacilityTypeID, FacilityName, FacilityDescr, FacilityFee)
 VALUES ('1', 'Main dinning room', 'Where people can eat in a large room', '0'),
 ('1', 'Buffet', 'Where people can get a variety of food', '35'),
@@ -70,7 +70,7 @@ VALUES ('1', 'Main dinning room', 'Where people can eat in a large room', '0'),
 ('5', 'Laboratory equipment', 'Medical treatment', '0'),
 ('5', 'Surgical and orthopedic supplies', 'Medical treatment', '0')
 GO
-
+-- Insert Ship
 INSERT INTO SHIP (ShipTypeID, ShipName, ShipDescr, CabinCount, YearLaunch, Tonnage, Capacity)
 VALUES ('1', 'Journey', 'A cruise ship', '3.55', '2016','30.28', '6.94'),
 ('1', 'Quest', 'A cruise ship', '3.55', '2016','30.28', '6.94'),
@@ -99,7 +99,155 @@ VALUES ('1', 'Journey', 'A cruise ship', '3.55', '2016','30.28', '6.94'),
 ('5', 'Galaxy', 'A cruise ship', '9.35', '2005','77.71', '18.9')
 GO
 
+-- Populate SHIP Table
+CREATE PROCEDURE GetShipID
+@STypeName varchar(50),
+@SpN varchar(50),
+@SDescr varchar(225),
+@CabinCount NUMERIC(5,2),
+@Yr char(4),
+@Tonnage NUMERIC(8,2),
+@Capacity NUMERIC(8,2),
+@SpID INT OUTPUT
+AS
+SET @SpID = (SELECT S.ShipID
+    FROM SHIP S
+           JOIN SHIP_TYPE ST ON S.ShipTypeID = ST.ShipTypeID
+            WHERE S.ShipName = @SpN
+            AND S.ShipDescr = @SDescr
+            AND S.CabinCount = @CabinCount
+            AND S.YearLaunch = @Yr
+            AND S.Tonnage = @Tonnage
+            AND S.Capacity = @Capacity
+            AND ST.ShipTypeName = @STypeName)
+GO
+--Look up table GetFacilityID
+CREATE PROCEDURE GetFacilityID
+@FacName varchar(50),
+@FDescr varchar(225),
+@FacFee NUMERIC(8,2),
+@FtName varchar(50),
+@FacID INT OUTPUT
+AS
+SET @FacID = (SELECT F.FacilityID
+FROM FACILITY F
+           JOIN FACILITY_TYPE FT ON F.FacilityTypeID = FT.FacilityTypeID
+            WHERE F.FacilityName = @FacName
+            AND F.FacilityDescr = @FDescr
+            AND FT.FacilityTypeName = @FtName)
+GO
 
+-- Insert SHIP_FACILITY Table
+CREATE PROCEDURE PopShipFacility
+@Ship varchar(50),
+@ShipDescr varchar(225),
+@Cabin Numeric(5,2),
+@Y char(4),
+@Ton Numeric(8,2),
+@Cap Numeric(8,2),
+@ShipType varchar(50),
+@FacType varchar(50),
+@Facility varchar(50),
+@FtFee Numeric(8,2),
+@Fdescr varchar(225)
+AS
+DECLARE @SP_ID INT, @FAC_ID INT
+ 
+EXEC GetShipID
+@STypeName = @ShipType,
+@SpN = @Ship,
+@SDescr = @ShipDescr,
+@CabinCount = @Cabin,
+@Yr = @Y,
+@Tonnage = @Ton,
+@Capacity = @Cap,
+@SpID = @SP_ID OUTPUT
+IF @SP_ID IS NULL
+   BEGIN
+       PRINT ' @SP_ID is Null, check spelling';
+       THROW 50014,'@SP_ID cannot be null; Process is terminating', 1;
+   END
+
+EXEC GetFacilityID
+@FacName = @Facility,
+@FDescr = @Fdescr,
+@FacFee = @FtFee,
+@FtName = @FacType,
+@FacID = @FAC_ID OUTPUT
+IF @FAC_ID IS NULL
+   BEGIN
+       PRINT ' @FAC_ID is Null, check spelling';
+       THROW 50010,'@FAC_ID cannot be null; Process is terminating', 1;
+   END
+BEGIN TRANSACTION T1
+INSERT INTO SHIP_FACILITY (ShipID, FacilityID)
+VALUES(@SP_ID, @FAC_ID)
+IF @@ERROR <> 0
+BEGIN
+PRINT '@@ERROR is showing an error somewhere...terminating process'
+ROLLBACK TRANSACTION T1
+END
+ELSE
+COMMIT TRANSACTION T1
+GO
+
+--Synthetic Transaction populate SHIP_Facility
+ALTER PROCEDURE group5WRAPPER_PopShipFacility
+@RUN INT
+AS 
+DECLARE @ShipName varchar(50), @SDescr varchar(225), @Cab NUMERIC(5,2), @Tonnage NUMERIC(8,2), @SCap NUMERIC(8,2),
+@Lyear char(4), @Fty varchar(50), @Fee Numeric(8,2), @SpType varchar(50), @FType varchar(50), @FacDescr varchar(225)
+
+DECLARE @ShipRowCount INT = (SELECT COUNT(*) FROM SHIP)
+DECLARE @FacRowCount INT = (SELECT COUNT(*) FROM FACILITY)
+DECLARE @ST_ID INT, @Fty_ID INT
+
+WHILE @RUN > 0
+BEGIN
+    SET @ST_ID = (SELECT RAND() * @ShipRowCount +1)
+    SET @Fty_ID = (SELECT RAND() * @FacRowCount + 1)
+        IF @Fty_ID =  12 
+        BEGIN
+            SET @Fty_ID = 6
+        END 
+        IF @Fty_ID =  15 
+        BEGIN
+            SET @Fty_ID = 6
+        END 
+
+    SET @ShipName = (SELECT ShipName FROM SHIP WHERE ShipID = @ST_ID)
+    SET @SDescr = (SELECT ShipDescr FROM SHIP WHERE ShipID = @ST_ID)
+    SET  @Cab = (SELECT CabinCount FROM SHIP WHERE ShipID = @ST_ID)
+    SET @Tonnage = (SELECT Tonnage FROM SHIP WHERE ShipID = @ST_ID)
+    SET @SCap = (SELECT Capacity FROM SHIP WHERE ShipID = @ST_ID)
+    SET @Lyear = (SELECT YearLaunch FROM SHIP WHERE ShipID = @ST_ID)
+    SET @FacDescr = (SELECT FacilityDescr FROM FACILITY WHERE FacilityID = @Fty_ID)
+    SET @SpType = (SELECT ShipTypeName FROM SHIP S JOIN SHIP_TYPE ST ON S.ShipTypeID = ST.ShipTypeID
+                    WHERE ShipID = @ST_ID)
+    SET @FType = (SELECT FacilityTypeName FROM FACILITY F
+                    JOIN FACILITY_TYPE FT ON  F.FacilityTypeID = FT.FacilityTypeID 
+                    WHERE FacilityID = @Fty_ID)
+    SET @Fty = (SELECT FacilityName FROM FACILITY WHERE FacilityID = @Fty_ID)
+    SET @Fee = (SELECT FacilityFee FROM FACILITY WHERE FacilityID = @Fty_ID)
+
+EXEC PopShipFacility
+@Ship = @ShipName,
+@ShipDescr = @SDescr,
+@Cabin = @Cab,
+@Y = @Lyear,
+@Ton = @Tonnage,
+@Cap = @SCap,
+@ShipType = @SpType,
+@FacType = @FType,
+@Facility = @Fty,
+@FtFee = @Fee,
+@Fdescr = @FacDescr
+
+SET @RUN = @RUN - 1
+END 
+GO
+
+group5WRAPPER_PopShipFacility 500000
 
 
 -- Joy
