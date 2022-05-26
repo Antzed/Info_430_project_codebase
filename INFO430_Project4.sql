@@ -172,7 +172,7 @@ COMMIT TRANSACTION T1
 GO
 
 --Synthetic Transaction 
-CREATE PROCEDURE group5WRAPPER_PopShipFacility
+ALTER PROCEDURE group5WRAPPER_PopShipFacility
 @RUN INT
 AS 
 DECLARE @ShipName varchar(50), @SDescr varchar(225), @Cab NUMERIC(5,2), @Tonnage NUMERIC(8,2), @SCap NUMERIC(8,2),
@@ -186,6 +186,15 @@ WHILE @RUN > 0
 BEGIN
     SET @ST_ID = (SELECT RAND() * @ShipRowCount +1)
     SET @Fty_ID = (SELECT RAND() * @FacRowCount + 1)
+        IF @Fty_ID =  12 
+        BEGIN
+            SET @Fty_ID = 6
+        END 
+        IF @Fty_ID =  15 
+        BEGIN
+            SET @Fty_ID = 6
+        END 
+
     SET @ShipName = (SELECT ShipName FROM SHIP WHERE ShipID = @ST_ID)
     SET @SDescr = (SELECT ShipDescr FROM SHIP WHERE ShipID = @ST_ID)
     SET  @Cab = (SELECT CabinCount FROM SHIP WHERE ShipID = @ST_ID)
@@ -218,7 +227,8 @@ SET @RUN = @RUN - 1
 END 
 GO
 
-group5WRAPPER_PopShipFacility 5000
+SELECT * FROM SHIP_FACILITY
+
 
 -- 2) Check constraint
 -- No ship launched less than 3 years can have a FacilityName 'Slot Machine' and passangers younger than 6 years old
@@ -388,7 +398,6 @@ HAVING AVG(RA.RatingNum) > 3.5
 
 SELECT * FROM TotalShips_Route A 
 JOIN AvgRating_Over2yrs B ON A.ShipID = B.ShipID
-GO
 
 -- Joy
 -- 1) Stored procedure
