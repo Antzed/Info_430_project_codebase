@@ -1,4 +1,4 @@
---Whitney
+--Whitney Zhang
 --1) Stored procedure
 --Populate FACILITY Table; Create Procedure look up GetFacilityTypeID first
 CREATE PROCEDURE GetFacilityTypeID
@@ -101,7 +101,7 @@ SET @SpID = (SELECT S.ShipID
             AND S.Capacity = @Capacity
             AND ST.ShipTypeName = @STypeName)
 GO
---Look up table GetFacilityID
+-- Populate Facility table
 CREATE PROCEDURE GetFacilityID
 @FacName varchar(50),
 @FDescr varchar(225),
@@ -227,8 +227,6 @@ SET @RUN = @RUN - 1
 END 
 GO
 
-SELECT * FROM SHIP_FACILITY
-
 
 -- 2) Check constraint
 -- No ship launched less than 3 years can have a FacilityName 'Slot Machine' and passangers younger than 6 years old
@@ -308,13 +306,14 @@ GO
 
 ALTER TABLE SHIP
 ADD Calc_TotalPassengers_ShipPast5 AS (dbo.Calc_ShipPassengerPast5(ShipID))
+GO
 
 -- Calculate the Average Rating for each Ship in the past 3 years
 CREATE FUNCTION Calc_AvgRatingShip5(@PK INT)
 RETURNS NUMERIC(8,2)
 AS 
 BEGIN
-DECLARE @RET NUMERIC(8,2) = (SELECT AVG(R.Rating) 
+DECLARE @RET NUMERIC(8,2) = (SELECT AVG(R.RatingNum) 
                     FROM RATING R
                         JOIN REVIEW RW ON R.RatingID = RW.RatingID
                         JOIN BOOKING B ON RW.BookingID = B.BookingID
@@ -330,7 +329,7 @@ GO
 
 ALTER TABLE SHIP 
 ADD Calc_AvgShipRating5 AS (dbo.Calc_AvgRatingShip5(ShipID))
-
+GO
 -- 4) Views
 -- Total number of Passengers on each Ship embarking in the city of Seattle
 -- that has at least 10 reviews in the past 2 years for each ship 
@@ -346,15 +345,15 @@ FROM PASSENGER P
     JOIN TRIP T ON B.TripID = T.TripID 
     JOIN PORT PT ON T.EmbarkPortID = PT.PortID
     JOIN CITY CT ON PT.CityID = CT.CityID 
-WHERE C.CityName = 'Seattle'
-GROUP BY P.PassengerFname, P.PassengerLname, S.ShipName, T.TripBeginDate
-ORDER BY NumPassengers
+WHERE CT.CityName = 'Seattle'
+GROUP BY P.PassengerFname, P.PassengerLname, S.ShipID, S.ShipName, T.TripBeginDate
+GO
 
 CREATE VIEW ShipReviews_Past2
 AS 
 SELECT S.ShipID, S.ShipName, R.ReviewDate, COUNT(R.ReviewID) AS TotalNumReviews
 FROM SHIP S 
-    JOIN CABIN_SHIP CP ON C.ShipID = CP.ShipID
+    JOIN CABIN_SHIP CP ON S.ShipID = CP.ShipID
     JOIN CABIN C ON CP.CabinID = C.CabinID
     JOIN BOOK_CABIN BC ON C.CabinID = BC.CabinID
     JOIN BOOKING B ON BC.BookingID = B.BookingID
@@ -362,31 +361,32 @@ FROM SHIP S
 WHERE R.ReviewDate > DATEADD(YEAR, -2, GETDATE())
 GROUP BY S.ShipID, S.ShipName, R.ReviewDate
 HAVING COUNT(R.ReviewID) >= 10
-
+GO
 SELECT * FROM ShipName_NumPassenger A 
 JOIN ShipReviews_Past2 B ON A.ShipID = B.ShipID
-
+GO
 --Total number of Ships for each Route with a duration of 14 days
--- that the average rating of all bookings from 2017 to 2019 is above 3.5
+-- that the average rating in the 75th percentile of all bookings from 2017 to 2019
 CREATE VIEW TotalShips_Route
 AS 
 SELECT S.ShipID, S.ShipName, S.YearLaunch, S.Tonnage, S.Capacity, S.CabinCount, R.RouteName, COUNT(S.ShipID) AS TotalNumShips
 FROM SHIP S 
-    JOIN CABIN_SHIP CP ON C.ShipID = CP.ShipID
+    JOIN CABIN_SHIP CP ON S.ShipID = CP.ShipID
     JOIN CABIN C ON CP.CabinID = C.CabinID
     JOIN BOOK_CABIN BC ON C.CabinID = BC.CabinID
     JOIN BOOKING B ON BC.BookingID = B.BookingID
     JOIN TRIP T ON B.TripID = T.TripID
     JOIN ROUTES R ON T.RouteID = R.RouteID 
 WHERE T.Duration = 14
-GROUP BY S.ShipName, S.YearLaunch, S.Tonnage, S.Capacity, S.CabinCount, R.RouteName
-ORDER BY TotalNumShips
+GROUP BY S.ShipID, S.ShipName, S.YearLaunch, S.Tonnage, S.Capacity, S.CabinCount, R.RouteName
+GO
 
-CREATE VIEW AvgRating_Over2yrs
+CREATE VIEW AvgRating_Over2yrs_75th
 AS
-SELECT S.ShipID, S.ShipName, R.ReviewDate, AVG(RA.RatingNum) AS AvgRating_Over2yrs
+SELECT S.ShipID, S.ShipName, R.ReviewDate, AVG(RA.RatingNum) AS AvgRating_Over2yrs, 
+        NTILE (100) OVER (ORDER BY AVG(RA.RatingNum)) AS NtileAvgRating
 FROM SHIP S 
-    JOIN CABIN_SHIP CP ON C.ShipID = CP.ShipID
+    JOIN CABIN_SHIP CP ON S.ShipID = CP.ShipID
     JOIN CABIN C ON CP.CabinID = C.CabinID
     JOIN BOOK_CABIN BC ON C.CabinID = BC.CabinID
     JOIN BOOKING B ON BC.BookingID = B.BookingID
@@ -395,9 +395,11 @@ FROM SHIP S
 WHERE YEAR(B.BookDateTime) BETWEEN 2017 AND 2019
 GROUP BY S.ShipID, S.ShipName, R.ReviewDate
 HAVING AVG(RA.RatingNum) > 3.5
+GO 
 
 SELECT * FROM TotalShips_Route A 
-JOIN AvgRating_Over2yrs B ON A.ShipID = B.ShipID
+JOIN AvgRating_Over2yrs_75th B ON A.ShipID = B.ShipID
+WHERE AvgRating_Over2yrs = 75
 
 -- Joy
 -- 1) Stored procedure
