@@ -1401,7 +1401,7 @@ GO
 
     --Computed column
 
-        --Calculate how many trips started at each port
+        --Calculate how many trips started at each port in the past five years
         CREATE FUNCTION portTripStarted(@PK INT)
         RETURNS INTEGER 
         AS
@@ -1412,6 +1412,7 @@ GO
             FROM TRIP T 
             JOIN PORT P ON T.EmbarkPortID = P.PortID
             WHERE P.PortID = @PK
+            AND T.TripBeginDate > DATEADD(YEAR, -5, GETDATE())
         )
 
         RETURN @RET
@@ -1422,7 +1423,7 @@ GO
         ADD Calc_TripsStarted AS (dbo.portTripStarted(PortID))
         GO
 
-        --Calculate the average rating a route has
+        --Calculate the average rating a route has in the past five years
         CREATE FUNCTION routeRating(@PK INT)
         RETURNS NUMERIC(3,2)
         AS
@@ -1436,6 +1437,7 @@ GO
             JOIN TRIP T ON B.TripID = T.TripID
             JOIN ROUTES RO ON T.RouteID = RO.RouteID
             WHERE RO.RouteID = @PK
+            AND T.TripBeginDate > DATEADD(YEAR, -5, GETDATE())
         )
 
         RETURN @RET 
@@ -1450,7 +1452,7 @@ GO
 
         --create a view for the number of passengers in each membership tier on one trip
         CREATE VIEW numMembershipOnTrip AS
-        SELECT T.TripID, M.MembershipID, M.MembershipName, (M.MembershipID) AS NumMembership
+        SELECT T.TripID, M.MembershipID, M.MembershipName, COUNT(M.MembershipID) AS NumMembership
         FROM MEMBERSHIP M
         JOIN PASSENGER P ON M.MembershipID = P.MembershipID
         JOIN BOOKING B ON P.PassengerID = B.PassengerID
