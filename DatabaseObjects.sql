@@ -4,16 +4,18 @@ GO
 --Anthony Zhang
 --view on showing the top 10 passengers who spend the most on booking cuirse ship for each memembership
 
-WITH top10_CTE(fname, lname, fare, farerank)
+WITH top10_CTE(fname, lname, membership, fare, farerank)
 AS
-(SELECT PassengerFname, PassengerLname, SUM(B.Fare),
-RANK() OVER(PARTITION BY M.MembershipName ORDER BY SUM(B.Fare))
+(SELECT PassengerFname, PassengerLname, MembershipName, SUM(B.Fare),
+RANK() OVER(PARTITION BY M.MembershipName ORDER BY SUM(B.Fare) DESC)
 FROM PASSENGER P
 	JOIN BOOKING B on P.PassengerID = B.PassengerID
 	JOIN MEMBERSHIP M on P.MembershipID = M.MembershipID
-GROUP BY PassengerFname, PassengerLname)
+GROUP BY PassengerFname, PassengerLname, MembershipName)
 
-SELECT TOP(10) fname, lname FROM top10_CTE ORDER BY farerank
+SELECT fname, lname, membership,fare,  farerank
+FROM top10_CTE 
+WHERE farerank <= 10
 
 --view showing the ranking of the most popular route for each ship
 WITH popularRoute_CTE(shipName, RouteName, routeRank)
@@ -29,7 +31,7 @@ FROM SHIP S
 	JOIN ROUTES R on T.RouteID = R.RouteID
 GROUP BY S.ShipName, R.RouteName)
 
-SELECT TOP(10) shipName, RouteName FROM popularRoute_CTE ORDER BY routeRank
+SELECT shipName, RouteName FROM popularRoute_CTE WHERE routeRank <= 10
 GO
 --computed column on how much did passengers spent the trip to Japan
 CREATE FUNCTION totalSpending(@PK INT)
@@ -52,7 +54,7 @@ GO
 
 ALTER TABLE PASSENGER
 ADD totalSpendingJapan
-AS (dbo.totalSpending(P.PassengerID))
+AS (dbo.totalSpending(PassengerID))
 GO
 
 SELECT * FROM COUNTRY
@@ -77,7 +79,7 @@ GO
 
 ALTER TABLE PASSENGER
 ADD averageSpending
-AS (dbo.totalSpending(P.PassengerID))
+AS (dbo.totalSpending(PassengerID))
 GO
 
 --busniess rule no passenger that is nont a adult is allow to book a cuise ship
@@ -100,7 +102,7 @@ RETURN @RET
 END
 GO	
 
-ALTER TABLE BOOKING
+ALTER TABLE BOOKING with nocheck
 ADD CONSTRAINT CK_no_child_booking
 CHECK (dbo.noChildBooking() = 0)
 GO
@@ -127,7 +129,7 @@ RETURN @RET
 END
 GO	
 
-ALTER TABLE BOOK_CABIN
+ALTER TABLE BOOK_CABIN with nocheck
 ADD CONSTRAINT CK_no_classic_suite
 CHECK (dbo.noClassicSuite() = 0)
 
