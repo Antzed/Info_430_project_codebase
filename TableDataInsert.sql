@@ -1,6 +1,8 @@
 USE group5_INFO430 
 GO
 
+BACKUP DATABASE group5_INFO430 TO DISK = 'C:\SQL\group5_INFO430.BAK' WITH DIFFERENTIAL
+
 INSERT INTO PASSENGER_TYPE(PassengerTypeName)
 VALUES('Adult'), ('Child'), ('Infant without a seat'), ('Infant with a seat'), ('Unaccompanied  child')
 
@@ -1536,8 +1538,7 @@ DROP PROCEDURE Wraper_insert_BookCabin
 SELECT COUNT(*) FROM PASSENGER
 --Anthony Part end
 
-
---Insert data to REVIEW
+--Miranda Ma
 --getRatingID
 CREATE PROCEDURE getRatingID 
 @RNum INT, 
@@ -1552,7 +1553,7 @@ CREATE PROCEDURE getBookingID
 @FName VARCHAR(50), 
 @LName VARCHAR(50), 
 @DOB DATE, 
-@TBD DATE, 
+@TBD DATETIME, 
 @RN VARCHAR(50),
 @BID INT OUTPUT
 AS
@@ -1578,7 +1579,7 @@ CREATE PROCEDURE insertReview
 @FN VARCHAR(50), 
 @LN VARCHAR(50), 
 @BDate DATE, 
-@TBDate DATE, 
+@TBDate DATETIME, 
 @RouteN VARCHAR(50)
 AS 
 
@@ -1596,33 +1597,56 @@ EXEC getBookingID
 @RN = @RouteN,
 @BID = @B_ID OUTPUT
 
+IF @R_ID is null
+	BEGIN
+		PRINT '@R_ID returns null, something is wrong with the data';
+		THROW 56001, '@R_ID cannot be null. Terminating the process', 1;
+	END
+
+IF @B_ID is null
+	BEGIN
+		PRINT '@B_ID returns null, something is wrong with the data';
+		THROW 56001, '@B_ID cannot be null. Terminating the process', 1;
+	END
+
 BEGIN TRANSACTION T1
 INSERT INTO REVIEW (BookingID, RatingID, ReviewTitle, ReviewContent, ReviewDate)
 VALUES (@B_ID, @R_ID, @RTitle, @RContent, @RDate)
 COMMIT TRANSACTION T1
 GO 
 
+drop procedure populatereviewwrapper
 --wrapper for inserting review
 CREATE PROCEDURE populateReviewWrapper
 @RUN INT 
 AS 
 
-DECLARE @FN VARCHAR(50), @LN VARCHAR(50), @BDate DATE, @RNum INT, @TBDate DATE, @ReviewDate DATE, @RouteN VARCHAR(50)
-DECLARE @RouteRowCount INT = (SELECT COUNT(*) FROM ROUTES)
-DECLARE @PassRowCount INT = (SELECT COUNT(*) FROM PASSENGER)
-DECLARE @R_PK INT, @P_PK INT
+DECLARE @FN VARCHAR(50), @LN VARCHAR(50), @BDate DATE, @RNum INT, @TBDate Datetime, @ReviewDate DATE, @RouteN VARCHAR(50)
+DECLARE @BookRowCount INT = (SELECT COUNT(*) FROM BOOKING)
+DECLARE @B_PK INT, @P_PK INT
 
 WHILE @RUN > 0
 BEGIN 
-SET @R_PK = (SELECT RAND() * @RouteRowCount + 1)
-SET @P_PK = (SELECT RAND() * @PassRowCount + 1)
+SET @B_PK = (SELECT RAND() * @BookRowCount + 1)
+SET @P_PK = (SELECT PassengerID FROM BOOKING WHERE BookingID = @B_PK)
 SET @FN = (SELECT PassengerFname FROM PASSENGER WHERE PassengerID = @P_PK)
 SET @LN = (SELECT PassengerLname FROM PASSENGER WHERE PassengerID = @P_PK)
 SET @BDate = (SELECT PassengerDOB FROM PASSENGER WHERE PassengerID = @P_PK)
-SET @RouteN = (SELECT RouteName FROM ROUTES WHERE RouteID = @R_PK)
-SET @TBDate = (SELECT GETDATE() - (RAND() * 100))
+SET @RouteN = (SELECT RouteName FROM ROUTES R JOIN TRIP T ON R.RouteID = T.RouteID JOIN BOOKING B ON T.TripID = B.TripID WHERE B.BookingID = @B_PK)
+SET @TBDate = (SELECT TripBeginDate FROM TRIP T JOIN BOOKING B ON T.TripID = B.TripID WHERE B.BookingID = @B_PK)
 SET @ReviewDate = (SELECT GETDATE() - (RAND() * 100))
-SET @RNum = (SELECT RAND() * 4 + 1)
+SET @RNum = (SELECT RAND() * 5 + 1)
+
+IF @B_PK is null
+	BEGIN
+		PRINT '@T_PK returns null, something is wrong with the data';
+		THROW 56001, '@T_PK cannot be null. Terminating the process', 1;
+	END
+IF @P_PK is null
+	BEGIN
+		PRINT '@T_PK returns null, something is wrong with the data';
+		THROW 56001, '@T_PK cannot be null. Terminating the process', 1;
+	END
 
 EXEC insertReview
 @RTitle = 'My Review', 
@@ -1639,13 +1663,13 @@ SET @RUN = @RUN - 1
 END 
 GO 
 
-EXEC populateReviewWrapper 500000
+EXEC populateReviewWrapper 450000
+SELECT * FROM REVIEW
 
 --insert unique records into copy of raw data
 SELECT City, Country INTO Working_Copy_Cities 
 FROM raw_cities
 GROUP BY City, Country HAVING COUNT(*) = 1
-
 
 alter table Working_Copy_Cities
 add CityID int identity(1,1)
