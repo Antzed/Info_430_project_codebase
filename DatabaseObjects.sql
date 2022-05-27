@@ -401,7 +401,7 @@ GO
 
 SELECT * FROM TotalShips_Route A 
 JOIN AvgRating_Over2yrs_75th B ON A.ShipID = B.ShipID
-WHERE AvgRating_Over2yrs = 75
+WHERE NtileAvgRating = 75
 
 -- Joy
 -- 1) Stored procedure
