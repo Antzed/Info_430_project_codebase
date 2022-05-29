@@ -1202,7 +1202,6 @@ VALUES (@B_ID, @R_ID, @RTitle, @RContent, @RDate)
 COMMIT TRANSACTION T1
 GO 
 
-drop procedure populatereviewwrapper
 --wrapper for inserting review
 CREATE PROCEDURE populateReviewWrapper
 @RUN INT 
@@ -1268,6 +1267,7 @@ GO
 INSERT INTO COUNTRY (CountryName)
 SELECT DISTINCT Country
 FROM working_Copy_Cities
+GO
 
 ALTER TABLE COUNTRY 
 DROP COLUMN CountryID 
@@ -1276,6 +1276,7 @@ ADD CountryID INT IDENTITY (1,1)
 --DBCC CHECKIDENT ('Trip', RESEED, 0)
 
 select * from Country
+GO
 
 --getCountryID
 CREATE PROCEDURE getCountryID
@@ -1373,6 +1374,7 @@ GO
         ALTER TABLE BOOKING 
         ADD CONSTRAINT noPassMoreThanCapa
         CHECK(dbo.noPassMoreThanCapa()=0)
+        GO
 
         --No passenger under 18 can stay in a cabin alone
         CREATE FUNCTION noPassAlone18()
@@ -1396,10 +1398,12 @@ GO
 
         RETURN @RET
         END
+        GO
 
         ALTER TABLE BOOKING 
         ADD CONSTRAINT noPassAlone18
         CHECK(dbo.noPassAlone18()=0)
+        GO
 
     --Computed column
 
@@ -1461,6 +1465,7 @@ GO
         JOIN TRIP T ON B.TripID = T.TripID
         JOIN ROUTES R ON T.RouteID = R.RouteID
         GROUP BY T.TripID, M.MembershipID, M.MembershipName
+        GO
 
         --create a view for the top 100 passenger who have done the most trips on cruises in suites rooms
         CREATE VIEW passMostTrips AS

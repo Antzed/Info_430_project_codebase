@@ -1485,39 +1485,6 @@ IF @CNamez_bcw is null
 		THROW 56010, '@CNamez_bcw cannot be null. Terminating the process', 1;
 	END
 
-
---SET @B_PK = (SELECT RAND() * @B_RowCount + 1)
-/*SET @PFnamez_bcw = (SELECT P.PassengerFname FROM BOOKING B
-											 JOIN PASSENGER P on B.PassengerID = P.PassengerID
-											 WHERE B.BookingID = @B_PK)
-SET @PLnamez_bcw = (SELECT P.PassengerLname FROM BOOKING B
-											 JOIN PASSENGER P on B.PassengerID = P.PassengerID
-											 WHERE B.BookingID = @B_PK)
-SET @Pdobz_bcw = (SELECT P.PassengerDOB FROM BOOKING B
-											 JOIN PASSENGER P on B.PassengerID = P.PassengerID
-											 WHERE B.BookingID = @B_PK)*/
-/*SET @TRNamez_bcw = (SELECT R.RouteName FROM BOOKING B
-									JOIN TRIP T on B.TripID = T.TripID
-									JOIN ROUTES R on T.RouteID = R.RouteID
-								   WHERE B.BookingID = @B_PK)
-SET @TEPName_bcw = (SELECT Pe.PortName FROM BOOKING B
-									JOIN TRIP T on B.TripID = T.TripID
-									JOIN Port Pe on T.EmbarkPortID = Pe.PortID
-									WHERE B.BookingID = @B_PK)
-SET @TDPNamez_bcw = (SELECT Pd.PortName FROM BOOKING B
-										 JOIN TRIP T on B.TripID = T.TripID
-										 JOIN Port Pd on T.DisembarkPortID = Pd.PortID
-									WHERE B.BookingID = @B_PK)
-SET @TBDatz_bcw = (SELECT T.TripBeginDate FROM BOOKING B
-										 JOIN TRIP T on B.TripID = T.TripID
-										WHERE B.BookingID = @B_PK)
-
-SET @BDTz_bcw = (SELECT BookDateTime FROM BOOKING WHERE BookingID = @B_PK)
-SET @Farez_bcw = (SELECT Fare FROM BOOKING WHERE BookingID = @B_PK)
-
-SET @C_PK = (SELECT RAND() * @C_RowCount + 1)
-SET @CNamez_bcw = (SELECT CabinName FROM CABIN WHERE CabinID = @C_PK)*/
-
 EXEC InsertBookCabin
 @PFname_bc = @PFnamez_bcw,
 @PLname_bc = @PLnamez_bcw,
