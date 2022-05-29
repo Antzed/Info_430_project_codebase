@@ -402,6 +402,7 @@ GO
 SELECT * FROM TotalShips_Route A 
 JOIN AvgRating_Over2yrs_75th B ON A.ShipID = B.ShipID
 WHERE NtileAvgRating = 75
+GO
 
 -- Joy
 -- 1) Stored procedure
@@ -1032,6 +1033,7 @@ GO
 ALTER TABLE BOOK_CABIN
 ADD CONSTRAINT CK_no_classic_suite
 CHECK (dbo.noClassicSuite() = 0)
+GO
 
 --one of my database storeprocedure
 CREATE PROCEDURE InsertCabinShip
