@@ -170,7 +170,7 @@ RoleID INT NOT NULL FOREIGN KEY REFERENCES ROLES(RoleID))
 GO
 
 
- --change relationship between CABIN and SHIP to Manny to many 
+ --change relationship between CABIN and SHIP to Many to many 
  ALTER TABLE CABIN
  DROP CONSTRAINT FK__CABIN__ShipID__6A30C649
 

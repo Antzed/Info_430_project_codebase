@@ -402,6 +402,7 @@ GO
 SELECT * FROM TotalShips_Route A 
 JOIN AvgRating_Over2yrs_75th B ON A.ShipID = B.ShipID
 WHERE NtileAvgRating = 75
+GO
 
 -- Joy
 -- 1) Stored procedure
@@ -1057,6 +1058,7 @@ GO
 ALTER TABLE BOOK_CABIN with nocheck
 ADD CONSTRAINT CK_no_classic_suite
 CHECK (dbo.noClassicSuite() = 0)
+GO
 
 --one of my database storeprocedure
 CREATE PROCEDURE InsertCabinShip
@@ -1223,7 +1225,6 @@ VALUES (@B_ID, @R_ID, @RTitle, @RContent, @RDate)
 COMMIT TRANSACTION T1
 GO 
 
-drop procedure populatereviewwrapper
 --wrapper for inserting review
 CREATE PROCEDURE populateReviewWrapper
 @RUN INT 
@@ -1289,6 +1290,7 @@ GO
 INSERT INTO COUNTRY (CountryName)
 SELECT DISTINCT Country
 FROM working_Copy_Cities
+GO
 
 ALTER TABLE COUNTRY 
 DROP COLUMN CountryID 
@@ -1297,6 +1299,7 @@ ADD CountryID INT IDENTITY (1,1)
 --DBCC CHECKIDENT ('Trip', RESEED, 0)
 
 select * from Country
+GO
 
 --getCountryID
 CREATE PROCEDURE getCountryID
@@ -1394,6 +1397,7 @@ GO
         ALTER TABLE BOOKING 
         ADD CONSTRAINT noPassMoreThanCapa
         CHECK(dbo.noPassMoreThanCapa()=0)
+        GO
 
         --No passenger under 18 can stay in a cabin alone
         CREATE FUNCTION noPassAlone18()
@@ -1417,14 +1421,16 @@ GO
 
         RETURN @RET
         END
+        GO
 
         ALTER TABLE BOOKING 
         ADD CONSTRAINT noPassAlone18
         CHECK(dbo.noPassAlone18()=0)
+        GO
 
     --Computed column
 
-        --Calculate how many trips started at each port
+        --Calculate how many trips started at each port in the past five years
         CREATE FUNCTION portTripStarted(@PK INT)
         RETURNS INTEGER 
         AS
@@ -1435,6 +1441,7 @@ GO
             FROM TRIP T 
             JOIN PORT P ON T.EmbarkPortID = P.PortID
             WHERE P.PortID = @PK
+            AND T.TripBeginDate > DATEADD(YEAR, -5, GETDATE())
         )
 
         RETURN @RET
@@ -1445,7 +1452,7 @@ GO
         ADD Calc_TripsStarted AS (dbo.portTripStarted(PortID))
         GO
 
-        --Calculate the average rating a route has
+        --Calculate the average rating a route has in the past five years
         CREATE FUNCTION routeRating(@PK INT)
         RETURNS NUMERIC(3,2)
         AS
@@ -1459,6 +1466,7 @@ GO
             JOIN TRIP T ON B.TripID = T.TripID
             JOIN ROUTES RO ON T.RouteID = RO.RouteID
             WHERE RO.RouteID = @PK
+            AND T.TripBeginDate > DATEADD(YEAR, -5, GETDATE())
         )
 
         RETURN @RET 
@@ -1472,14 +1480,25 @@ GO
     --Views
 
         --create a view for the number of passengers in each membership tier on one trip
-        CREATE VIEW numMembershipOnTrip2 AS
-        SELECT  M.MembershipName,R.RouteName, COUNT(P.PassengerID) AS Numpassenger
+		CREATE VIEW numMembershipOnTrip AS
+        SELECT T.TripID, M.MembershipID, M.MembershipName, COUNT(M.MembershipID) AS NumMembership
         FROM MEMBERSHIP M
         JOIN PASSENGER P ON M.MembershipID = P.MembershipID
         JOIN BOOKING B ON P.PassengerID = B.PassengerID
         JOIN TRIP T ON B.TripID = T.TripID
         JOIN ROUTES R ON T.RouteID = R.RouteID
-        GROUP BY  M.MembershipName,R.RouteName
+		GROUP BY T.TripID, M.MembershipID, M.MembershipName
+        GO
+
+        CREATE VIEW numMembershipOnTrip2 AS
+        SELECT  M.MembershipName,R.RouteName, COUNT(P.PassengerID) AS Numpassenger
+		FROM MEMBERSHIP M
+        JOIN PASSENGER P ON M.MembershipID = P.MembershipID
+        JOIN BOOKING B ON P.PassengerID = B.PassengerID
+        JOIN TRIP T ON B.TripID = T.TripID
+        JOIN ROUTES R ON T.RouteID = R.RouteID
+		GROUP BY  M.MembershipName,R.RouteName
+
 		DROP view numMembershipOnTrip
 
         --create a view for the top 100 passenger who have done the most trips on cruises in suites rooms
