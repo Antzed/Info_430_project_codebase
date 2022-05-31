@@ -907,7 +907,8 @@ GO
 
 --Anthony Zhang
 --view on showing the top 10 passengers who spend the most on booking cuirse ship for each memembership
-
+CREATE VIEW vw_top10_CTEv
+AS
 WITH top10_CTE(fname, lname, membership, fare, farerank)
 AS
 (SELECT PassengerFname, PassengerLname, MembershipName, SUM(B.Fare),
@@ -920,23 +921,45 @@ GROUP BY PassengerFname, PassengerLname, MembershipName)
 SELECT fname, lname, membership,fare,  farerank
 FROM top10_CTE 
 WHERE farerank <= 10
+GO
 
---view showing the ranking of the most popular route for each ship
-WITH popularRoute_CTE(shipName, RouteName, routeRank)
+--view showing the ranking of the most popular route
+CREATE VIEW vwpopularRoute_CTE
 AS
-(SELECT S.ShipName, R.RouteName, 
-RANK() OVER(PARTITION BY S.ShipName ORDER BY Count(B.BookingID))
-FROM SHIP S
-	JOIN CABIN_SHIP CS on CS.ShipID  = S.ShipID
-	JOIN CABIN C on CS.CabinID = C.CabinID
-	JOIN BOOK_CABIN BC on BC.CabinID = C.CabinID
-	JOIN BOOKING B on BC.BookingID = B.BookingID
+WITH popularRoute_CTE(RouteName, routeCount, routeRank)
+AS
+(SELECT R.RouteName, S.ShipName, Count(B.BookingID) as Book_raw_count
+--RANK() OVER(PARTITION BY R.RouteName ORDER BY Count(B.BookingID))
+FROM BOOKING B
 	JOIN TRIP T on B.TripID = T.TripID
 	JOIN ROUTES R on T.RouteID = R.RouteID
-GROUP BY S.ShipName, R.RouteName)
+	JOIN BOOK_CABIN BC on B.BookingID = BC.BookingID
+	JOIN CABIN C on BC.CabinID = C.CabinID
+	JOIN CABIN_SHIP CS on C.CabinID = CS.CabinID
+	JOIN SHIP S on CS.ShipID = S.ShipID
+GROUP BY R.RouteName, S.ShipName)
+
+SELECT COUNT(BookingID) FROM BOOKING
 
 SELECT shipName, RouteName FROM popularRoute_CTE WHERE routeRank <= 10
 GO
+
+--How many people have booked each type of room in the past 20 years and what memebership
+CREATE VIEW vwCabinTypePopularity
+AS
+SELECT C.CabinName, Count(B.BookingID) as BookingNum,
+RANK() OVER (ORDER BY Count(B.BookingID))  as ranking
+FROM PASSENGER P
+	JOIN BOOKING B on P.PassengerID = B.PassengerID
+	JOIN BOOK_CABIN BC on B.BookingID = BC.BookingID
+	JOIN CABIN C on BC.CabinID = C.CabinID
+	JOIN MEMBERSHIP M on P.MembershipID = M.MembershipID
+WHERE BookDateTime > DATEADD(YEAR, -20, GetDate())
+GROUP BY C.CabinName
+GO
+
+DROP VIEW vwCabinTypePopularity
+
 --computed column on how much did passengers spent the trip to Japan
 CREATE FUNCTION totalSpending(@PK INT)
 RETURNS INT
@@ -1458,15 +1481,26 @@ GO
     --Views
 
         --create a view for the number of passengers in each membership tier on one trip
-        CREATE VIEW numMembershipOnTrip AS
+		CREATE VIEW numMembershipOnTrip AS
         SELECT T.TripID, M.MembershipID, M.MembershipName, COUNT(M.MembershipID) AS NumMembership
         FROM MEMBERSHIP M
         JOIN PASSENGER P ON M.MembershipID = P.MembershipID
         JOIN BOOKING B ON P.PassengerID = B.PassengerID
         JOIN TRIP T ON B.TripID = T.TripID
         JOIN ROUTES R ON T.RouteID = R.RouteID
-        GROUP BY T.TripID, M.MembershipID, M.MembershipName
+		GROUP BY T.TripID, M.MembershipID, M.MembershipName
         GO
+
+        CREATE VIEW numMembershipOnTrip2 AS
+        SELECT  M.MembershipName,R.RouteName, COUNT(P.PassengerID) AS Numpassenger
+		FROM MEMBERSHIP M
+        JOIN PASSENGER P ON M.MembershipID = P.MembershipID
+        JOIN BOOKING B ON P.PassengerID = B.PassengerID
+        JOIN TRIP T ON B.TripID = T.TripID
+        JOIN ROUTES R ON T.RouteID = R.RouteID
+		GROUP BY  M.MembershipName,R.RouteName
+
+		DROP view numMembershipOnTrip
 
         --create a view for the top 100 passenger who have done the most trips on cruises in suites rooms
         CREATE VIEW passMostTrips AS
