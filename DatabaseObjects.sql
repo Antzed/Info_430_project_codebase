@@ -289,11 +289,11 @@ GO
 
 -- 3) Computed column
 -- Calculate the Number of Passengers for each Ship in the past 5 years
-CREATE FUNCTION Calc_ShipPassengerPast5(@PK INT)
-RETURNS NUMERIC(8,2)
+CREATE FUNCTION Calc_ShipPassengerPast5s(@PK INT)
+RETURNS INT
 AS 
 BEGIN
-DECLARE @RET NUMERIC(8,2) = (SELECT COUNT(P.PassengerID) 
+DECLARE @RET INT = (SELECT COUNT(P.PassengerID) 
                     FROM PASSENGER P 
                         JOIN BOOKING B ON P.PassengerID = B.PassengerID
                         JOIN BOOK_CABIN BC ON B.BookingID = BC.BookingID
@@ -307,7 +307,7 @@ END
 GO
 
 ALTER TABLE SHIP
-ADD Calc_TotalPassengers_ShipPast5 AS (dbo.Calc_ShipPassengerPast5(ShipID))
+ADD Calc_TotalPassengers_ShipPast5s AS (dbo.Calc_ShipPassengerPast5s(ShipID))
 GO
 
 -- Calculate the Average Rating for each Ship in the past 3 years
@@ -332,6 +332,7 @@ GO
 ALTER TABLE SHIP 
 ADD Calc_AvgShipRating5 AS (dbo.Calc_AvgRatingShip5(ShipID))
 GO
+
 -- 4) Views
 -- Total number of Passengers on each Ship embarking in the city of Seattle
 -- that has at least 10 reviews in the past 2 years for each ship 
