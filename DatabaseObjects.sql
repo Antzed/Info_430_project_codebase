@@ -1500,8 +1500,6 @@ GO
         JOIN ROUTES R ON T.RouteID = R.RouteID
 		GROUP BY  M.MembershipName,R.RouteName
 
-		DROP view numMembershipOnTrip
-
         --create a view for the top 100 passenger who have done the most trips on cruises in suites rooms
         CREATE VIEW passMostTrips AS
         SELECT TOP 100 P.PassengerID, P.PassengerFname, P.PassengerLname, COUNT(T.TripID) AS numTrips
